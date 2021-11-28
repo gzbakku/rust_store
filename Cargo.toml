@@ -1,0 +1,6 @@
+[workspace]
+
+members = [
+    "gzb_binary_69",
+    "rustque"
+]
