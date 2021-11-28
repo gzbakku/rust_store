@@ -4,6 +4,14 @@ version = "0.1.0"
 authors = ["gzbakku <gzbakku@gmail.com>"]
 edition = "2018"
 
+description = "this is a binary key value structure with a high performance a reader and writer"
+homepage = "https://github.com/gzbakku/rust_store"
+repository = "https://github.com/gzbakku/rust_store"
+readme = "README.md"
+keywords = ["ssl", "openssl","certificate","rsa","generate"]
+categories = ["encoding", "data-structures"]
+license = "GPL-3.0"
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
