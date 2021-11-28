@@ -481,6 +481,34 @@ impl Reader{
         unhandled::init(self,self.buffer.len());
         self.reset();
     }
+    pub fn expand(&mut self,num_of_bytes:usize)->Result<(),&'static str>{
+
+        //check if last is empty
+        let map_len = self.map.len()-1;
+        match self.map.get_mut(map_len){
+            Some(v)=>{
+                match v.pointer_type{
+                    PointerType::Empty=>{
+                        v.boundry.0.1 += num_of_bytes;
+                        return Ok(());
+                    },
+                    _=>{}
+                }
+            },
+            None=>{
+                return Err("failed-get-tail");
+            }
+        }
+
+        //make new empty pointer
+        let mut build = Pointer::new();
+        build.boundry.0.0 = self.map_cursor;
+        build.boundry.0.1 = self.map_cursor+num_of_bytes-1;
+        build.pointer_type = PointerType::Empty;
+        self.map.push(build);
+        return Ok(());
+
+    }
 }
 
 fn read(reader:&mut Reader,buffer:&mut Vec<u8>)->Result<Pointer,&'static str>{

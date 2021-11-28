@@ -45,10 +45,10 @@ fn main() {
 
     let time_start = Instant::now();
 
-
     //-------------------------
     //parse test
     //-------------------------
+
     let mut parsed_1 = parser::writer::init(
         (1 as u64).to_be_bytes().to_vec(),
         String::from("value 12").as_bytes().to_vec(),
@@ -122,7 +122,7 @@ fn main() {
         collect.append(&mut parsed_2);
         collect.append(&mut vec![0,0,0,0]);
         collect.append(&mut parsed_3);
-        collect.append(&mut vec![0,0,0,0]);
+        // collect.append(&mut vec![0,0,0,0]);
     }
 
     //-------------------------
@@ -222,6 +222,19 @@ fn main() {
             },
             Err(_)=>{
                 println!("!!! find failed");
+            }
+        }
+    }
+
+    //test expand
+    if true{
+        if true{workers::print_pointers(&mut r);}
+        match &r.expand(10){
+            Ok(_)=>{
+                println!("==expand successfull");
+            },
+            Err(_)=>{
+                println!("==expand failed");
             }
         }
     }
