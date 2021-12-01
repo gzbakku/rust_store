@@ -144,15 +144,6 @@ dependencies = [
 
 [[package]]
 name = "gzb_binary_69"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9ba41af062a2ada913f07830c77b58d10da3a521b51766762bf568aa71ca8781"
-dependencies = [
- "byteorder",
-]
-
-[[package]]
-name = "gzb_binary_69"
 version = "0.1.1"
 dependencies = [
  "byteorder",
@@ -371,7 +362,7 @@ dependencies = [
  "byteorder",
  "crossbeam",
  "flume",
- "gzb_binary_69 0.1.0",
+ "gzb_binary_69",
  "tokio",
 ]
 

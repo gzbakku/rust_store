@@ -1,10 +1,8 @@
 use gzb_binary_69::Reader;
-// use flume::unbounded as FlumeUnBounded;
 use flume::bounded as FlumeBounded;
 use flume::Receiver as FlumeReveiver;
 use flume::Sender as FlumeSender;
 use crate::workers::Signal;
-// use crate::workers::Debugger;
 use std::sync::Arc;
 use tokio::sync::{Notify,Mutex};
 
@@ -24,19 +22,9 @@ impl Config{
     }
 }
 
-pub struct DiskAddMessage{
-    // pub debugger:Arc<Mutex<Debugger>>,
-    pub start_at:u64,
-    pub value:Vec<u8>,
-    pub signal:Arc<Mutex<Signal>>,
-    pub notify:Arc<Notify>
-}
-
-//(u64,Vec<u8>,Arc<Mutex<Signal>>,Arc<Notify>)
-
 pub enum DiskMessage{
     Expand((Arc<Mutex<Signal>>,Arc<Notify>)),
-    Add(DiskAddMessage)
+    Add((u64,Vec<u8>,Arc<Mutex<Signal>>,Arc<Notify>))
 }
 
 #[derive(Clone)]
@@ -48,8 +36,7 @@ pub struct DiskConfig{
 
 impl DiskConfig{
     pub fn new(p:String,frame_size:u64)->(DiskConfig,FlumeSender<DiskMessage>){
-        let (sender,receiver) = FlumeBounded(5000);
-        // let (sender, receiver) = FlumeUnBounded();
+        let (sender,receiver) = FlumeBounded(100);
         return (
             DiskConfig{
                 receiver:receiver,
@@ -61,15 +48,9 @@ impl DiskConfig{
     }
 }
 
-pub struct MapAddMessage{
-    // pub debugger:Arc<Mutex<Debugger>>,
-    pub value:Vec<u8>,
-    pub signal:Arc<Mutex<Signal>>,
-    pub notify:Arc<Notify>
-}
 
 pub enum MapMessage{
-    Add(MapAddMessage),
+    Add((Vec<u8>,Arc<Mutex<Signal>>,Arc<Notify>)),
     Print
 }
 
@@ -83,8 +64,7 @@ pub struct MapConfig{
 
 impl MapConfig{
     pub fn new(r:Reader,disk_sender:FlumeSender<DiskMessage>,items:Vec<u64>,frame_size:u64)->(MapConfig,FlumeSender<MapMessage>){
-        let (sender, receiver) = FlumeBounded(5000);
-        // let (sender, receiver) = FlumeUnBounded();
+        let (sender, receiver) = FlumeBounded(100);
         return (
             MapConfig{
                 disk_sender:disk_sender,

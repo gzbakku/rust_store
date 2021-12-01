@@ -1,6 +1,6 @@
 
-use std::collections::HashMap;
-// use std::time::Instant;
+
+use std::time::Instant;
 
 mod unhandled;
 mod key;
@@ -80,6 +80,7 @@ impl Pointer{
         hold.value.0.1 = map_cursor + value_start + value_len - 1;
         hold.value.1.0 = value_start;
         hold.value.1.1 = value_end;
+        // println!("p : {:?}",hold);
         return hold;
     }
 }
@@ -92,12 +93,7 @@ pub enum ReaderFunc{
 #[derive(Debug)]
 pub struct Reader{
     pub no_flag_in_buffer:bool,
-    pub empty_map:HashMap<usize,(usize,(usize,usize))>,//<empty_index,(len,(start,end))>
-    pub empty_start:HashMap<usize,usize>,//<start,empty_index>
-    pub empty_end:HashMap<usize,usize>,//<end,empty_index>
-    pub empty_index:usize,
-    pub pointers:HashMap<Vec<u8>,((usize,usize),(usize,usize))>,//(boundry(start,end),value(start,end))
-    pub corrupt:Vec<(usize,(usize,usize))>,//(len,(start,end))
+    pub map:Vec<Pointer>,
     pub build_map:bool,
     pub to_find:Vec<Vec<u8>>,
     pub find_values:bool,
@@ -126,12 +122,7 @@ impl Reader{
     pub fn new()->Reader{
         Reader{
             no_flag_in_buffer:false,
-            pointers:HashMap::new(),
-            empty_map:HashMap::new(),//<empty_index,(len,(start,end))>
-            empty_start:HashMap::new(),//<start,empty_index>
-            empty_end:HashMap::new(),//<end,empty_index>
-            empty_index:1,
-            corrupt:vec![],
+            map:vec![],
             build_map:true,
             to_find:Vec::new(),
             find_values:false,
@@ -150,12 +141,7 @@ impl Reader{
     pub fn with_capacity(map_capacity:usize,buffer_capacity:usize)->Reader{
         Reader{
             no_flag_in_buffer:false,
-            pointers:HashMap::with_capacity(map_capacity),
-            empty_map:HashMap::new(),//<empty_index,(len,(start,end))>
-            empty_start:HashMap::new(),//<start,empty_index>
-            empty_end:HashMap::new(),//<end,empty_index>
-            empty_index:1,
-            corrupt:vec![],
+            map:Vec::with_capacity(map_capacity),
             build_map:true,
             to_find:Vec::new(),
             find_values:false,
@@ -173,192 +159,260 @@ impl Reader{
     }
     pub fn fill(&mut self,key:Vec<u8>,value_size:usize)->Result<Write,&'static str>{
 
-        // let time_fill_find = Instant::now();
-
-        //----------------------------
-        //zero align boundries
-        //----------------------------
         let total_len = 39+key.len()+value_size;
+        //zero alligned
+        let key_start_at = 18;
+        let key_end_at = 18+key.len()-1;
         let value_start_at = 36+key.len();
+        let value_end_at = 36+key.len()+value_size-1;
 
-        //----------------------------
         //find a empty space
-        //----------------------------
-
-        let mut empty_index = 0;
-        let mut empty_found = false;
-        for (key,value) in self.empty_map.iter(){
-            if value.0 >= total_len{
-                empty_found = true;
-                empty_index = *key;
-                break;
+        let mut index:usize = 0;
+        let mut filler_space_found = false;
+        let mut empty_space_len:usize = 0;
+        let time_fill_find = Instant::now();
+        for pointer in self.map.iter(){
+            match pointer.pointer_type{
+                PointerType::Empty=>{
+                    let len = pointer.boundry.0.1 - pointer.boundry.0.0 + 1;
+                    empty_space_len = len;
+                    if len >= total_len{
+                        filler_space_found = true;
+                        break;
+                    }
+                },
+                _=>{}
             }
+            index += 1;
         }
-        if !empty_found{
+
+        println!("fill find in {:?}",time_fill_find.elapsed());
+
+        if !filler_space_found{
             return Err("full");
         }
 
-        let empty = self.empty_map[&empty_index];
-        let value_start = empty.1.0 + value_start_at;
-        let value_end = empty.1.0 + 36+key.len()+value_size-1;
-        let pointer_start = empty.1.0;
-        let pointer_end = empty.1.0 + total_len - 1;
-
-        //----------------------------
-        //make pointer
-        //----------------------------
-        match self.pointers.insert(key, ((pointer_start,pointer_end),(value_start,value_end))){
-            Some(_)=>{},
-            None=>{}
-        }
-
-        //----------------------------
-        //edit empty
-        //----------------------------
-        if total_len == empty.0{
-            self.empty_map.remove(&empty_index);
-        } else {
-            match self.empty_map.get_mut(&empty_index){
-                Some(e)=>{
-                    e.1.0 = empty.1.0 + total_len;
-                    e.0 = e.1.1 - e.1.0 + 1;
+        //replace the empty space
+        if empty_space_len == total_len{
+            //edit pointer to be of data type
+            match self.map.get_mut(index){
+                Some(pointer)=>{
+                    pointer.pointer_type = PointerType::Data;
+                    pointer.key.0.0 = pointer.boundry.0.0 + key_start_at;
+                    pointer.key.0.1 = pointer.boundry.0.0 + key_end_at;
+                    pointer.key.2 = key;
+                    pointer.value.0.0 = pointer.boundry.0.0 + value_start_at;
+                    pointer.value.0.1 = pointer.boundry.0.0 + value_end_at;
+                    return Ok(Write{
+                        start:pointer.boundry.0.0,
+                        end:pointer.boundry.0.1
+                    });
                 },
                 None=>{
-                    return Err("failed-edit-empty");
+                    return Err("failed-get-empty_space");
                 }
             }
+        } else
+
+        if empty_space_len > total_len{
+            let map_cursor:usize;
+            match self.map.get_mut(index){
+                Some(pointer)=>{
+                    map_cursor = pointer.boundry.0.0;
+                    pointer.boundry.0.0 = pointer.boundry.0.0 + total_len;
+                },
+                None=>{
+                    return Err("failed-get-empty_space");
+                }
+            }
+            //add new pointer
+            self.map.insert(index,Pointer::data(
+                total_len,
+                map_cursor,
+                map_cursor,
+                map_cursor+total_len-1, 
+                map_cursor+key_start_at, 
+                map_cursor+key_end_at, 
+                key, 
+                value_start_at, 
+                value_end_at
+            ));
+            return Ok(Write{
+                start:map_cursor,
+                end:map_cursor+total_len-1
+            });
+        } else {
+            return Err("unhandled-error");
         }
-
-        // return Err("no_error");
-
-        //----------------------------
-        //return write
-        //----------------------------
-        return Ok(Write{
-            start:pointer_start,
-            end:pointer_end
-        });
 
     }
-    pub fn clear(&mut self,key:&Vec<u8>)->Result<(),&'static str>{
+    pub fn clear(&mut self,point:usize)->Result<(),&'static str>{
 
-        if !self.pointers.contains_key(key){
-            return Ok(());
+        if point >= self.map.len(){
+            return Err("point is out of scope");
         }
 
-        let pointer:((usize,usize),(usize,usize));
-        match self.pointers.remove(key){
-            Some(v)=>{pointer = v;},
-            None=>{
-                return Err("failed-get-pointer");
-            }
-        }
-
-        let mut previous_empty_index:usize = 0;
-        let mut previous_empty_found = false;
-        if pointer.0.0 > 0{
-            match self.empty_end.get(&(pointer.0.0 - 1)){
+        let mut opp:u8 = 0;
+        //combine previous to current
+        if point > 0{
+            match self.map.get(point-1){
                 Some(v)=>{
-                    previous_empty_index = v.clone();
-                    previous_empty_found = true;
-                },
-                None=>{}
-            }
-        }
-
-        let mut next_empty_index:usize = 0;
-        let mut next_empty_found = false;
-        match self.empty_start.get(&(pointer.0.1 + 1)){
-            Some(v)=>{
-                next_empty_index = v.clone();
-                next_empty_found = true;
-            },
-            None=>{}
-        }
-
-        if previous_empty_found{
-            let mut next_empty_end = 0;
-            //remove previous start pointer
-            self.empty_end.remove(&self.empty_map[&previous_empty_index].1.1);
-            if next_empty_found{
-                next_empty_end = self.empty_map[&next_empty_index].1.1;
-                //remove next emtpy boundry pointers
-                self.empty_start.remove(&self.empty_map[&next_empty_index].1.0);
-                self.empty_end.remove(&self.empty_map[&next_empty_index].1.1);
-            }
-            match self.empty_map.get_mut(&previous_empty_index){
-                Some(e)=>{
-                    if next_empty_found{
-                        e.1.1 = next_empty_end;
-                        e.0 = e.1.1 - e.1.0 + 1;
-                    } else {
-                        e.1.1 = pointer.0.1;
-                        e.0 = e.1.1 - e.1.0 + 1;
+                    match v.pointer_type{
+                        PointerType::Empty=>{
+                            opp = 1;//combine with previous
+                        },
+                        _=>{}
                     }
-                    self.empty_end.insert(e.1.1,previous_empty_index);
                 },
-                None=>{
-                    return Err("failed-get-previous");
-                }
+                None=>{return Err("failed-read_previous_pointer");}
             }
-            if next_empty_found{
-                self.empty_map.remove(&next_empty_index);
-            }
-        } else
-
-        if next_empty_found{
-            self.empty_start.remove(&self.empty_map[&next_empty_index].1.0);
-            match self.empty_map.get_mut(&next_empty_index){
-                Some(e)=>{
-                    e.1.0 = pointer.0.0;
-                    e.0 = e.1.1 - e.1.0 + 1;
-                    self.empty_start.insert(e.1.0,next_empty_index);
+        }
+        //combine current to next
+        if point < self.map.len()-1{
+            match self.map.get(point+1){
+                Some(v)=>{
+                    match v.pointer_type{
+                        PointerType::Empty=>{
+                            if opp == 1{
+                                opp = 3;//combine with previous and next
+                            } else {
+                                opp = 2;//combine with next
+                            }
+                        },
+                        _=>{}
+                    }
                 },
-                None=>{
-                    return Err("failed-get-previous");
-                }
+                None=>{return Err("failed-read_previous_pointer");}
             }
-        } else
-
-        if !next_empty_found && !previous_empty_found{
-            self.empty_start.insert(pointer.0.0,self.empty_index);
-            self.empty_end.insert(pointer.0.1,self.empty_index);
-            self.empty_map.insert(self.empty_index,(pointer.0.1 - pointer.0.0 + 1,pointer.0));
-            self.empty_index += 1;
-        } 
-        
-        else {
-            return Err("unhandled_error");
         }
 
+        if opp == 0{//only clear data
+            match self.map.get_mut(point){
+                Some(v)=>{
+                    v.clear();
+                    return Ok(());
+                },
+                None=>{
+                    return Err("point lock failed");
+                }
+            }
+        } else//only clear data
+        if opp == 1{//combine previos and current
+            let map_boundry_end:usize;
+            let buffer_boundry_end:usize;
+            match self.map.get(point){
+                Some(current)=>{
+                    map_boundry_end = current.boundry.0.1;
+                    buffer_boundry_end = current.boundry.1.1;
+                },
+                None=>{
+                    return Err("point lock failed");
+                }
+            }
+            match self.map.get_mut(point-1){
+                Some(previous)=>{
+                    previous.boundry.0.1 = map_boundry_end;
+                    previous.boundry.1.1 = buffer_boundry_end;
+                },
+                None=>{
+                    return Err("point lock failed");
+                }
+            }
+            self.map.remove(point);
+        } else //combine previos and current
+        if opp == 2{//combine current and next
+            let map_boundry_start:usize;
+            let buffer_boundry_start:usize;
+            match self.map.get(point){
+                Some(current)=>{
+                    map_boundry_start = current.boundry.0.0;
+                    buffer_boundry_start = current.boundry.1.0;
+                },
+                None=>{
+                    return Err("point lock failed");
+                }
+            }
+            match self.map.get_mut(point+1){
+                Some(previous)=>{
+                    previous.boundry.0.0 = map_boundry_start;
+                    previous.boundry.1.0 = buffer_boundry_start;
+                },
+                None=>{
+                    return Err("point lock failed");
+                }
+            }
+            self.map.remove(point);
+        } else //combine current and next
+        if opp == 3{//combine current, previous and next
+            let map_boundry_start:usize;
+            let buffer_boundry_start:usize;
+            let map_boundry_end:usize;
+            let buffer_boundry_end:usize;
+            //next
+            match self.map.get(point+1){
+                Some(next)=>{
+                    map_boundry_end = next.boundry.0.1;
+                    buffer_boundry_end = next.boundry.1.1;
+                },
+                None=>{
+                    return Err("point lock failed");
+                }
+            }
+            //previous
+            match self.map.get(point-1){
+                Some(previous)=>{
+                    map_boundry_start = previous.boundry.0.0;
+                    buffer_boundry_start = previous.boundry.1.0;
+                },
+                None=>{
+                    return Err("point lock failed");
+                }
+            }
+            //current
+            match self.map.get_mut(point){
+                Some(current)=>{
+                    current.clear();
+                    current.boundry.0.0 = map_boundry_start;
+                    current.boundry.0.1 = map_boundry_end;
+                    current.boundry.1.0 = buffer_boundry_start;
+                    current.boundry.1.1 = buffer_boundry_end;
+                },
+                None=>{
+                    return Err("point lock failed");
+                }
+            }
+            self.map.remove(point+1);
+            self.map.remove(point-1);
+        }//combine current, previous and next
+        
         return Ok(());
 
     }//clear
-    pub fn find(&self,key:&Vec<u8>)->Result<((usize,usize),(usize,usize)),()>{
-        match self.pointers.get(key){
-            Some(v)=>{
-                return Ok(*v);
-            },
-            None=>{
-                return Err(());
+    pub fn find(&self,key:&Vec<u8>)->Result<usize,()>{
+        let mut index = 0;
+        for i in self.map.iter(){
+            match i.pointer_type{
+                PointerType::Data=>{
+                    if &i.key.2 == key{
+                        return Ok(index);
+                    }
+                },
+                _=>{}
             }
+            index += 1;
         }
+        return Err(());
     }
-    pub fn map(&mut self,buffer:&mut Vec<u8>){
-
+    pub fn map(&mut self,buffer:&mut Vec<u8>)->Result<(),&'static str>{
         loop{
-
             match read(self,buffer){
                 Ok(v)=>{
-
-                    //extract pointer from buffer
+                    //important line
                     let pointer_len = v.boundry.0.1-v.boundry.0.0+1;
                     let new_buffer = self.buffer.split_off(v.boundry.1.1+1);
                     let old_buffer = &self.buffer;
                     self.buffer_cursor = 0;
                     self.map_cursor += pointer_len;
-
-                    //collect values
                     if self.find_values && !self.get_values_controll{
                         for i in self.to_find.iter(){
                             if i == &v.key.2{
@@ -369,7 +423,7 @@ impl Reader{
                                 self.values.push((v.key.2.clone(),collect_value));
                             }
                         }
-                    } else
+                    }
                     if self.get_values_controll{
                         let mut collect_value:Vec<u8> = vec![];
                         for i in v.value.1.0..v.value.1.1{
@@ -377,100 +431,39 @@ impl Reader{
                         }
                         self.values.push((v.key.2.clone(),collect_value));
                     }
-
-                    //build map
                     if self.build_map{
-                        match v.pointer_type{
-                            PointerType::Data=>{
-                                match self.pointers.insert(v.key.2,(v.boundry.0,v.value.0)){
-                                    Some(_)=>{},
-                                    None=>{}
-                                }
-                            },
-                            _=>{}
-                        }
+                        self.map.push(v);
                     }
-
-                    //place new buffer
                     self.buffer = new_buffer;
-
                 },
-                Err(_e)=>{
-                    break;
+                Err(e)=>{
+                    return Err(e);
                 }
             }
         }
-
         // return Ok(());
-
     }
     pub fn end(&mut self)->Result<(),&'static str>{
-
-        if self.buffer.len() == 0{
-            return Ok(());
-        }
-
-        loop{
-
-            match read(self,&mut vec![]){
-                Ok(v)=>{
-
-                    //extract pointer from buffer
-                    let pointer_len = v.boundry.0.1-v.boundry.0.0+1;
-                    let new_buffer = self.buffer.split_off(v.boundry.1.1+1);
-                    let old_buffer = &self.buffer;
-                    self.buffer_cursor = 0;
-                    self.map_cursor += pointer_len;
-
-                    //collect values
-                    if self.find_values && !self.get_values_controll{
-                        for i in self.to_find.iter(){
-                            if i == &v.key.2{
-                                let mut collect_value:Vec<u8> = vec![];
-                                for i in v.value.1.0..v.value.1.1{
-                                    collect_value.push(old_buffer[i]);
-                                }
-                                self.values.push((v.key.2.clone(),collect_value));
-                            }
-                        }
-                    } else
-                    if self.get_values_controll{
-                        let mut collect_value:Vec<u8> = vec![];
-                        for i in v.value.1.0..v.value.1.1{
-                            collect_value.push(old_buffer[i]);
-                        }
-                        self.values.push((v.key.2.clone(),collect_value));
+        if self.buffer.len() > 0{
+            loop{
+                match read(self,&mut vec![]){
+                    Ok(v)=>{
+                        let pointer_len = v.boundry.0.1-v.boundry.0.0+1;
+                        self.buffer = self.buffer.split_off(v.boundry.1.1+1);
+                        self.buffer_cursor = 0;
+                        self.map_cursor += pointer_len;
+                        self.map.push(v);
+                    },
+                    Err(_)=>{
+                        break;
                     }
-
-                    //build map
-                    if self.build_map{
-                        match v.pointer_type{
-                            PointerType::Data=>{
-                                match self.pointers.insert(v.key.2,(v.boundry.0,v.value.0)){
-                                    Some(_)=>{},
-                                    None=>{}
-                                }
-                            },
-                            _=>{}
-                        }
-                    }
-
-                    //place new buffer
-                    self.buffer = new_buffer;
-
-                },
-                Err(_e)=>{
-                    break;
                 }
             }
         }
-
         if self.buffer.len() > 0{
             unhandled::init(self,self.buffer.len());
         }
-
         return Ok(());
-
     }
     pub fn reset(&mut self){
         //flag
@@ -498,39 +491,29 @@ impl Reader{
     }
     pub fn expand(&mut self,num_of_bytes:usize)->Result<(),&'static str>{
 
-        //find last empty section
-        let mut empty_found = false;
-        let mut empty_index:usize = 0;
-        match self.empty_end.get(&(self.map_cursor-1)){
+        //check if last is empty
+        let map_len = self.map.len()-1;
+        match self.map.get_mut(map_len){
             Some(v)=>{
-                empty_index = *v;
-                empty_found = true;
-            },
-            None=>{}
-        }
-
-        //update last empty section
-        if empty_found{
-            match self.empty_map.get_mut(&empty_index){
-                Some(e)=>{
-                    e.1.1 += num_of_bytes;
-                    e.0 = e.1.1 - e.1.0 + 1;
-                },
-                None=>{
-                    return Err("failed-edit-last-empty_section");
+                match v.pointer_type{
+                    PointerType::Empty=>{
+                        v.boundry.0.1 += num_of_bytes;
+                        return Ok(());
+                    },
+                    _=>{}
                 }
+            },
+            None=>{
+                return Err("failed-get-tail");
             }
-        } else {
-            //make new empty section at the end
-            self.empty_map.insert(self.empty_index,(
-                num_of_bytes,
-                (self.map_cursor,self.map_cursor+num_of_bytes-1)
-            ));
-            self.empty_end.insert(self.map_cursor+num_of_bytes-1,self.empty_index);
-            self.empty_start.insert(self.map_cursor,self.empty_index);
-            self.empty_index += 1;
         }
 
+        //make new empty pointer
+        let mut build = Pointer::new();
+        build.boundry.0.0 = self.map_cursor;
+        build.boundry.0.1 = self.map_cursor+num_of_bytes-1;
+        build.pointer_type = PointerType::Empty;
+        self.map.push(build);
         return Ok(());
 
     }
@@ -541,15 +524,21 @@ fn read(reader:&mut Reader,buffer:&mut Vec<u8>)->Result<Pointer,&'static str>{
     if buffer.len() > 0{
         reader.buffer.append(buffer);
     }
+
+    // buff_print(&reader.buffer);
+
+    // println!("reading at : {:?}",reader.buffer_cursor);
         
     //find flag
     if reader.flag.0 == false {
         match vector_in_vector(&reader.buffer,&vec![0,1,0],reader.buffer_cursor){
             Ok(l)=>{
+                // println!("l : {:?}",l);
                 reader.no_flag_in_buffer = false;
                 if l.0 > 0{
                     unhandled::init(reader,l.0);
                 }
+                // println!("unhandled completed");
                 if true {
                     reader.flag.0 = true;
                     reader.flag.1 = reader.buffer_cursor;
@@ -558,6 +547,7 @@ fn read(reader:&mut Reader,buffer:&mut Vec<u8>)->Result<Pointer,&'static str>{
                 }
             },
             Err(_)=>{
+                // println!("no flag found : {:?}",reader.buffer);
                 if reader.buffer.len() > 6{
                     reader.buffer_cursor = reader.buffer.len() - 5;
                 } else {
@@ -608,6 +598,8 @@ fn read(reader:&mut Reader,buffer:&mut Vec<u8>)->Result<Pointer,&'static str>{
 }
 
 fn vector_in_vector(v1:&Vec<u8>,v2:&Vec<u8>,start_cursor:usize)->Result<(usize,usize),()>{
+
+    // println!("check vector : {:?} {:?}",start_cursor,v1.len());
 
     let mut v2_cursor:usize = 0;
     let mut found_some = false;

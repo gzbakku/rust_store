@@ -4,11 +4,11 @@ use std::path::Path;
 use tokio::io::{AsyncWriteExt,AsyncReadExt,AsyncSeekExt};
 use std::fs::Metadata;
 use std::io::{SeekFrom};
-// use crate::workers::{debug_error,debug_message};
-// use std::time::Instant;
+use crate::workers::{debug_error,debug_message};
+use std::time::Instant;
 
-// const DEBUG:bool = false;
-// const ERROR:bool = true;
+const DEBUG:bool = false;
+const ERROR:bool = true;
 
 pub async fn init_map(path:String,frame:u64)->Result<(File,Metadata),&'static str>{
 
@@ -27,7 +27,7 @@ pub async fn init_map(path:String,frame:u64)->Result<(File,Metadata),&'static st
                 file = f;
             },
             Err(_)=>{
-                // debug_error("failed-create_file-init_map-io.rs",ERROR);
+                debug_error("failed-create_file-init_map-io.rs",ERROR);
                 return Err("failed-create_file");
             }
         }
@@ -41,7 +41,7 @@ pub async fn init_map(path:String,frame:u64)->Result<(File,Metadata),&'static st
                         // debug_message("writen",DEBUG);
                     },
                     Err(_)=>{
-                        // debug_error("failed-write_block-expand_file-init_map-io.rs",ERROR);
+                        debug_error("failed-write_block-expand_file-init_map-io.rs",ERROR);
                         return Err("failed-build_frame-create_file");
                     }
                 }
@@ -54,7 +54,7 @@ pub async fn init_map(path:String,frame:u64)->Result<(File,Metadata),&'static st
             match file.write_all(&collect).await{
                 Ok(_)=>{},
                 Err(_)=>{
-                    // debug_error("failed-expand_file-last-init_map-io.rs",ERROR);
+                    debug_error("failed-expand_file-last-init_map-io.rs",ERROR);
                     return Err("failed-build_frame-create_file");
                 }
             }
@@ -65,7 +65,7 @@ pub async fn init_map(path:String,frame:u64)->Result<(File,Metadata),&'static st
                 return Ok((file,v));
             },
             Err(_)=>{
-                // debug_error("failed-get_metadata-init_map-io.rs",ERROR);
+                debug_error("failed-get_metadata-init_map-io.rs",ERROR);
                 return Err("failed-get-metadata");
             }
         }
@@ -79,13 +79,13 @@ pub async fn init_map(path:String,frame:u64)->Result<(File,Metadata),&'static st
                     return Ok((file,v));
                 },
                 Err(_)=>{
-                    // debug_error("failed-existing-get_metadata-init_map-io.rs",ERROR);
+                    debug_error("failed-existing-get_metadata-init_map-io.rs",ERROR);
                     return Err("failed-get-metadata");
                 }
             }
         },
         Err(_)=>{
-            // debug_error("failed-open_file-init_map-io.rs",ERROR);
+            debug_error("failed-open_file-init_map-io.rs",ERROR);
             return Err("failed-open_file");
         }
     }
@@ -98,7 +98,7 @@ pub async fn expand(file:&mut File,size:&u64)->Result<(),&'static str>{
     match file.seek(SeekFrom::End(0)).await{
         Ok(_)=>{},
         Err(_)=>{
-            // debug_error("failed-file_seek-expand-io.rs",ERROR);
+            debug_error("failed-file_seek-expand-io.rs",ERROR);
             return Err("failed-seek");
         }
     }
@@ -109,7 +109,7 @@ pub async fn expand(file:&mut File,size:&u64)->Result<(),&'static str>{
             match file.write(&collect).await{
                 Ok(_)=>{},
                 Err(_)=>{
-                    // debug_error("failed-write_block-expand-io.rs",ERROR);
+                    debug_error("failed-write_block-expand-io.rs",ERROR);
                     return Err("failed-build_frame-create_file");
                 }
             }
@@ -122,7 +122,7 @@ pub async fn expand(file:&mut File,size:&u64)->Result<(),&'static str>{
         match file.write(&collect).await{
             Ok(_)=>{},
             Err(_)=>{
-                // debug_error("failed-write_block-last-expand-io.rs",ERROR);
+                debug_error("failed-write_block-last-expand-io.rs",ERROR);
             }
         }
     }
@@ -139,7 +139,7 @@ pub async fn write_chunk(file:&mut File,start_at:u64,buffer:Vec<u8>)->Result<(),
     match file.seek(SeekFrom::Start(start_at)).await{
         Ok(_)=>{},
         Err(_e)=>{
-            // debug_error("failed-file_seek-write_chunk-io.rs",ERROR);
+            debug_error("failed-file_seek-write_chunk-io.rs",ERROR);
             return Err("failed-seek");
         }
     }
@@ -147,11 +147,11 @@ pub async fn write_chunk(file:&mut File,start_at:u64,buffer:Vec<u8>)->Result<(),
     match file.write(&buffer).await{
         Ok(_)=>{
             // println!("write in : {:?}",hold.elapsed());
-            // debug_message("chunk writen",DEBUG);
+            debug_message("chunk writen",DEBUG);
             return Ok(());
         },
         Err(_)=>{
-            // debug_error("failed-write_all-write_chunk-io.rs",ERROR);
+            debug_error("failed-write_all-write_chunk-io.rs",ERROR);
             return Err("failed-read_chunk");
         }
     }
@@ -163,7 +163,7 @@ pub async fn read_chunk(file:&mut File,buffer:&mut Vec<u8>,start_at:u64,read_len
     match file.seek(SeekFrom::Start(start_at)).await{
         Ok(_)=>{},
         Err(_e)=>{
-            // debug_error("failed-seek-read_chunk-io.rs",ERROR);
+            debug_error("failed-seek-read_chunk-io.rs",ERROR);
             return Err("failed-seek");
         }
     }
@@ -173,7 +173,7 @@ pub async fn read_chunk(file:&mut File,buffer:&mut Vec<u8>,start_at:u64,read_len
             return Ok(v);
         },
         Err(_)=>{
-            // debug_error("failed-take-read_chunk-io.rs",ERROR);
+            debug_error("failed-take-read_chunk-io.rs",ERROR);
             return Err("failed-read_chunk");
         }
     }
@@ -193,7 +193,7 @@ pub async fn read_full(path:String){
             file = f;
         },
         Err(_)=>{
-            // debug_error("failed-open_file",ERROR);
+            debug_error("failed-open_file",ERROR);
             return;
         }
     }
@@ -202,7 +202,7 @@ pub async fn read_full(path:String){
     match file.seek(SeekFrom::Start(0)).await{
         Ok(_)=>{},
         Err(_)=>{
-            // debug_error("failed-seek_file",ERROR);
+            debug_error("failed-seek_file",ERROR);
             return;
         }
     }
@@ -210,7 +210,7 @@ pub async fn read_full(path:String){
     match file.read_to_end(&mut buffer).await{
         Ok(_)=>{},
         Err(_)=>{
-            // debug_error("failed-read_file",ERROR);
+            debug_error("failed-read_file",ERROR);
             return;
         }
     }

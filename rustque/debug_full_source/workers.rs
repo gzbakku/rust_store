@@ -3,14 +3,12 @@ use byteorder::{BigEndian, WriteBytesExt,ReadBytesExt};
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
-#[allow(dead_code)]
 pub fn debug_error(e:&'static str,c:bool){
     if c{
         println!("!!! {}",e);
     }
 }
 
-#[allow(dead_code)]
 pub fn debug_message(e:&'static str,c:bool){
     if c{
         println!("!!! {}",e);
@@ -70,34 +68,3 @@ impl Signal{
         return lock.result;
     }
 }
-
-// #[derive(Debug)]
-// pub struct Debugger{
-//     updates:Vec<&'static str>,
-//     errors:Vec<&'static str>
-// }
-
-// impl Debugger{
-//     pub fn new()->Arc<Mutex<Debugger>>{
-//         Arc::new(
-//             Mutex::new(
-//                 Debugger{
-//                     updates:vec![],
-//                     errors:vec![]
-//                 }
-//             )
-//         )
-//     }
-//     pub async fn update(hold:&Arc<Mutex<Debugger>>,m:&'static str){
-//         let mut lock = hold.lock().await;
-//         lock.updates.push(m);
-//     }
-//     pub async fn error(hold:&Arc<Mutex<Debugger>>,m:&'static str){
-//         let mut lock = hold.lock().await;
-//         lock.errors.push(m);
-//     }
-//     pub async fn print(hold:&Arc<Mutex<Debugger>>){
-//         let lock = hold.lock().await;
-//         println!("{:#?}",lock);
-//     }
-// }

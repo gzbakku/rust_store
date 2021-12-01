@@ -27,7 +27,7 @@ async fn main() {
     match Que::new(Config::new(
         "D://workstation/expo/rust/rust_store/test/rustque/que1.rustque".to_string(),
         10000,
-        20
+        10
     )).await{
         Ok(v)=>{
             // println!("que made successfully");
@@ -43,24 +43,20 @@ async fn main() {
 
     if false{que.print_map().await;}
 
-    for _i in 0..1{
-        let write_hold = Instant::now();
-        for _n in 0..100{
-            match que.add(vec![1,2,3]).await{
-                Ok(_)=>{
-                    // println!(">>> success-que-add {:?}",_n);
-                },
-                Err(_)=>{
-                    println!("!!! failed-que-add");
-                }
+    for i in 0..5000{
+        match que.add(vec![1,2,3]).await{
+            Ok(_)=>{
+                println!(">>> success-que-add {:?}",i);
+            },
+            Err(_)=>{
+                println!("!!! failed-que-add");
             }
         }
-        println!("write complete : {:?}",write_hold.elapsed());
     }
 
-    println!("final in : {:?}",hold.elapsed());
+    println!("write complete : {:?}",hold.elapsed());
 
-    if false{que.print_map().await;}
+    if true{que.print_map().await;}
 
     if false {
         io::read_full(

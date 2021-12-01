@@ -7,19 +7,16 @@ use gzb_binary_69::{Reader};
 use tokio::fs::File;
 use tokio::spawn as TokioSpawn;
 use flume::Sender as FlumeSender;
-use crate::workers::{u64_from_bytes};
-// use crate::workers::{debug_error,debug_message};
+use crate::workers::{u64_from_bytes,debug_error,debug_message};
 use crate::workers::Signal;
-// use crate::workers::Debugger;
 use tokio::sync::Notify;
 use std::sync::Arc;
-use crate::config::{MapConfig,MapMessage,DiskConfig,MapAddMessage};
-// use tokio::time::timeout;
-// use std::time::Duration;
-// use std::time::Instant;
+use crate::config::{MapConfig,MapMessage,DiskConfig};
+use tokio::time::timeout;
+use std::time::Duration;
 
-// const ERROR:bool = true;
-// const DEBUG:bool = false;
+const ERROR:bool = true;
+const DEBUG:bool = false;
 
 #[derive(Debug,Clone)]
 pub struct Que{
@@ -40,7 +37,7 @@ impl Que{
                 metadata = v.1;
             },
             Err(_)=>{
-                //debug_error("failed-init-map-que.rs",ERROR);
+                debug_error("failed-init-map-que.rs",ERROR);
                 return Err("failed-init-map");
             }
         }
@@ -53,7 +50,7 @@ impl Que{
                 que_items = r.1;
             },
             Err(_)=>{
-                //debug_error("failed-build-map-que.rs",ERROR);
+                debug_error("failed-build-map-que.rs",ERROR);
                 return Err("failed-build-map");
             }
         }
@@ -82,41 +79,64 @@ impl Que{
     pub async fn add(&mut self,value:Vec<u8>)->Result<(),()>{
 
         let signal = Signal::new();
-        // let debugger = Debugger::new();
         let waker = Arc::new(Notify::new());
         let sleeper = waker.clone();
 
-        //debug_message("\nadding",DEBUG);
+        debug_message("\nadding",DEBUG);
 
-        //Debugger::update(&debugger, "adding").await;
+        // match timeout(
+        //     Duration::from_secs(1),
+        //     self.sender.send_async(
+        //         MapMessage::Add((value,signal.clone(),waker))
+        //     )
+        // ).await{
+        //     Ok(v)=>{
+        //         match v{
+        //             Ok(_)=>{
+        //                 debug_message("map add message sent",DEBUG);
+        //             },
+        //             Err(_)=>{
+        //                 debug_error("failed-send_add_message-que.rs",ERROR);
+        //                 return Err(());
+        //             }
+        //         }
+        //     },
+        //     Err(_)=>{
+        //         debug_error("timeout-send_add_message-que.rs",ERROR);
+        //         return Err(());
+        //     }
+        // }
 
         match self.sender.send_async(
-            MapMessage::Add(MapAddMessage{
-                // debugger:debugger.clone(),
-                value:value,
-                signal:signal.clone(),
-                notify:waker
-            }) /*(value,signal.clone(),waker))*/
+            MapMessage::Add((value,signal.clone(),waker))
         ).await{
             Ok(_)=>{
-                //Debugger::update(&debugger, "map add message sent").await;
-                //debug_message("map add message sent",DEBUG);
+                debug_message("map add message sent",DEBUG);
             },
             Err(_)=>{
-                //debug_error("failed-send_add_message-que.rs",ERROR);
+                debug_error("failed-send_add_message-que.rs",ERROR);
                 return Err(());
             }
         }
 
         // sleeper.notified().await;
 
-        //debug_message("listening for notification",DEBUG);
-        //Debugger::update(&debugger, "listening for notification").await;
+        debug_message("listening for notification",DEBUG);
 
-        sleeper.notified().await;
+        match timeout(
+            Duration::from_secs(3),
+            sleeper.notified()
+        ).await{
+            Ok(_)=>{
+                
+            },
+            Err(_)=>{
+                debug_error("timeout-listen_for_notification-que.rs",ERROR);
+                return Err(());
+            }
+        }
 
-        //debug_message("noti received",DEBUG);
-        //Debugger::update(&debugger, "noti received").await;
+        debug_message("noti received",DEBUG);
 
         if Signal::check(signal).await{
             return Ok(());
@@ -129,7 +149,7 @@ impl Que{
         match self.sender.send_async(MapMessage::Print).await{
             Ok(_)=>{},
             Err(_)=>{
-                //debug_error("failed-send_print_message-que.rs",ERROR);
+                debug_error("failed-send_print_message-que.rs",ERROR);
             }
         }
     }
@@ -170,17 +190,12 @@ async fn build_map(metadata:Metadata,file:&mut File)->Result<(Reader,Vec<u64>),&
         let start_at = index*chunk_size;
         let read_len:u64;
         if len > chunk_size{read_len = chunk_size;} else {read_len = len;}
-        // let hold_time = Instant::now();
         match io::read_chunk(file, &mut read_buffer, start_at, read_len).await{
             Ok(_)=>{
-                // println!("chuck read in : {:?}",hold_time.elapsed());
                 match reader.map(&mut read_buffer){
-                    Ok(_)=>{
-                        // println!("chuck mapped in : {:?}",hold_time.elapsed());
-                    },
+                    Ok(_)=>{},
                     Err(_)=>{}
                 }
-                // println!("chuck mapped in : {:?}",hold_time.elapsed());
             },
             Err(_)=>{
                 return Err("failed-read_chunk");
@@ -194,35 +209,26 @@ async fn build_map(metadata:Metadata,file:&mut File)->Result<(Reader,Vec<u64>),&
         index += 1;
     }
 
-    // let end_time = Instant::now();
     match reader.end(){
         Ok(_)=>{},
         Err(_)=>{}
     }
-    // println!("ended in : {:?}",end_time.elapsed());
 
-    // let ranked_time = Instant::now();
-    let mut collect:Vec<u64> = Vec::with_capacity(reader.map.len());
+    let mut collect:Vec<u64> = Vec::new();
     for i in reader.map.iter(){
         match u64_from_bytes(&i.key.2){
             Ok(num)=>{
-                collect.push(num);
-                // let mut collect_index = 0;
-                // let mut smaller_found = false;
-                // for i in collect.iter(){
-                //     if &num < i{smaller_found = true;break;}
-                //     collect_index += 1;
-                // }
-                // if smaller_found{collect.insert(collect_index,num);} else {collect.push(num);}
+                let mut collect_index = 0;
+                let mut smaller_found = false;
+                for i in collect.iter(){
+                    if &num < i{smaller_found = true;break;}
+                    collect_index += 1;
+                }
+                if smaller_found{collect.insert(collect_index,num);} else {collect.push(num);}
             },
             Err(_)=>{}
         }
     }
-
-    collect.sort();
-
-    // println!("{:?}",collect);
-    // println!("ranked in : {:?}",ranked_time.elapsed());
 
     return Ok((reader,collect));
 

@@ -1,11 +1,15 @@
-
 use crate::workers::Signal;
+// use crate::workers::{debug_error,debug_message};
+// use crate::workers::Debugger;
 use tokio::sync::{Notify,Mutex};
-use crate::config::{DiskConfig,DiskMessage};
+use crate::config::{DiskConfig,DiskMessage,DiskAddMessage};
 use std::sync::Arc;
 use tokio::fs::{File,OpenOptions};
-use crate::io::{expand};
-// use gzb_binary_69::Write;
+use crate::io::{expand,write_chunk};
+// use std::time::Instant;
+
+// const ERROR:bool = true;
+// const DEBUG:bool = false;
 
 pub async fn init(config:DiskConfig){
 
@@ -21,6 +25,7 @@ pub async fn init(config:DiskConfig){
             file = f;
         },
         Err(_)=>{
+            // debug_error("failed-open_file-disk.rs",ERROR);
             return;
         }
     }
@@ -33,6 +38,7 @@ pub async fn init(config:DiskConfig){
                 message = m;
             },
             Err(_)=>{
+                // debug_error("failed-receive_message-disk.rs",ERROR);
                 break;
             }
         }
@@ -42,7 +48,9 @@ pub async fn init(config:DiskConfig){
                 handle_expand(&mut config,value,&mut file).await;
             },
             DiskMessage::Add(value)=>{
-                handle_add(&mut config,value,&mut file).await;
+                // let hold = Instant::now();
+                handle_add(value,&mut file).await;
+                // println!("added in : {:?}",hold.elapsed());
             }
         }
 
@@ -50,18 +58,39 @@ pub async fn init(config:DiskConfig){
 
 }
 
-async fn handle_add(config:&mut DiskConfig,value:(Vec<u8>,Arc<Mutex<Signal>>,Arc<Notify>),file:&mut File){
 
-
-
+//(u64,Vec<u8>,Arc<Mutex<Signal>>,Arc<Notify>)
+async fn handle_add(message:DiskAddMessage,file:&mut File){
+    //Debuggerupdate(&message.debugger, "disk add message received").await;
+    // debug_message("disk add message received",DEBUG);
+    match write_chunk(file, message.start_at, message.value).await{
+        Ok(_)=>{
+            // println!("editing signal");
+            Signal::ok(message.signal).await;
+            // println!("signal marked");
+            //Debuggerupdate(&message.debugger, "added to disk").await;
+            // debug_message("added to disk",DEBUG);
+        },
+        Err(_)=>{
+            //Debuggererror(&message.debugger, "failed-handle_add-disk.rs").await;
+            // debug_message("failed add to disk",DEBUG);
+            // debug_error("failed-handle_add-disk.rs",ERROR);
+        }
+    }
+    message.notify.notify_one();
+    //Debuggerupdate(&message.debugger, "handle_add notified").await;
+    // debug_message("handle_add notified",DEBUG);
 }
 
-async fn handle_expand(config:&mut DiskConfig,value:(Arc<Mutex<Signal>>,Arc<Notify>),file:&mut File){
+//(Arc<Mutex<Signal>>,Arc<Notify>),file:&mut File
+async fn handle_expand(config:&mut DiskConfig,message:(Arc<Mutex<Signal>>,Arc<Notify>),file:&mut File){
     match expand(file,&config.frame_size).await{
         Ok(_)=>{
-            Signal::ok(value.0).await;
+            Signal::ok(message.0).await;
         },
-        Err(_)=>{}
+        Err(_)=>{
+            // debug_error("failed-handle_expand-disk.rs",ERROR);
+        }
     }
-    value.1.notify_waiters();
+    message.1.notify_one();
 }

@@ -40,6 +40,14 @@ fn main() {
         collect.append(&mut vec![0,0,0,0/*3*/,1,2/*5*/,0/*6*/,3/*7*/,0,0,0/*10*/]);
     }
 
+    //add for empty space test
+    if true {
+        for _ in 0..0_999_999{
+            collect.push(0);
+        }
+        println!("bytes alloted : {:?}",time_start.elapsed().as_millis());
+    }
+
     //add for fill space test
     if false {
         collect.append(&mut parser::writer::init(
@@ -55,25 +63,11 @@ fn main() {
         println!("bytes alloted : {:?}",time_start.elapsed().as_millis());
     }
 
-    let mut last_key_filled:u64 = 1;
-
-    //add for remove test
-    if true{
-        // collect.append(&mut vec![0,0,0,0]);
-        collect.append(&mut parsed_1);
-        // collect.append(&mut vec![1,2,3]);
-        // collect.append(&mut vec![0,0,0,0]);
-        collect.append(&mut parsed_2);
-        // collect.append(&mut vec![0,0,0,0]);
-        collect.append(&mut parsed_3);
-        // collect.append(&mut vec![0,0,0,0]);
-        last_key_filled = 4;
-    }
-
     //add for line quantity test
-    if false {
+    let mut last_key_filled:u64 = 1;
+    if true {
         // let mut index:u64 = 1;
-        for _ in 0..1000000{
+        for _ in 0..1_00_000{
             let mut build = parser::writer::init(
                 last_key_filled.to_be_bytes().to_vec(),
                 String::from("value").as_bytes().to_vec(),
@@ -86,12 +80,15 @@ fn main() {
         println!("lines alloted : {:?} {:?} {:?}",last_key_filled,collect.len(),time_start.elapsed().as_millis());
     }
 
-    //add for empty space test
-    if false {
-        for _ in 0..1_999_999{
-            collect.push(0);
-        }
-        println!("bytes alloted : {:?} {:?}",collect.len(),time_start.elapsed().as_millis());
+    //add for remove test
+    if false{
+        collect.append(&mut vec![0,0,0,0]);
+        collect.append(&mut parsed_1);
+        collect.append(&mut vec![0,0,0,0]);
+        collect.append(&mut parsed_2);
+        collect.append(&mut vec![0,0,0,0]);
+        collect.append(&mut parsed_3);
+        // collect.append(&mut vec![0,0,0,0]);
     }
 
     //-------------------------
@@ -128,7 +125,7 @@ fn main() {
     let mut pool = vec![];
     let mut buffer = vec![];
     for i in collect{
-        if &buffer.len() == &100000{
+        if &buffer.len() == &10000{
             &pool.push(buffer.clone());
             &buffer.clear();
             &buffer.push(i);
@@ -147,7 +144,10 @@ fn main() {
             break;
         }
         let mut part = pool.remove(0);
-        &r.map(&mut part);
+        match &r.map(&mut part){
+            Ok(_)=>{},
+            Err(_)=>{}
+        }
     }
     match &r.end(){
         Ok(_)=>{
@@ -161,68 +161,40 @@ fn main() {
     //-------------------------
 
     //test fill
-    if false{
+    if true{
         let fill_time_final = Instant::now();
-        for _ in 0..10{
+        for _ in 0..10000{
+            let key = last_key_filled.to_be_bytes().to_vec();
+            let value = String::from("value").as_bytes().to_vec();
             // let fill_time = Instant::now();
-            for _ in 0..100000{
-                let key = last_key_filled.to_be_bytes().to_vec();
-                let value = String::from("value").as_bytes().to_vec();
-                // let fill_time = Instant::now();
-                match &r.fill(key,value.len()){
-                    Ok(_)=>{
-                        // println!("fill in : {:?}",fill_time.elapsed());
-                    },
-                    Err(_e)=>{
-                        println!("==fill failed : {:?}",_e);
-                    }
-                }
-                last_key_filled += 1;
-            }
-            // println!("fill_time : {:?}",fill_time.elapsed());
-        }
-        println!("fill_time_final : {:?} {:?}",fill_time_final.elapsed(),time_start.elapsed());
-    }
-
-    if false{
-        println!("pointers len : {:?}",r.pointers.len());
-        let clear_time_final = Instant::now();
-        let hold_pointers = r.pointers.clone();
-        let keys = hold_pointers.keys();
-        for key in keys{
-            // let clear_time = Instant::now();
-            match &r.clear(key){
+            match &r.fill(key,value.len()){
                 Ok(_)=>{
-                    // println!("clear_time : {:?}",clear_time.elapsed());
+                    // println!("fill in : {:?}",fill_time.elapsed());
                 },
-                Err(_e)=>{
-                    println!("==clear failed : {:?}",_e);
+                Err(_)=>{
+                    println!("==fill failed");
                 }
             }
+            last_key_filled += 1;
         }
-        println!("clear_time_final : {:?} {:?}",clear_time_final.elapsed(),time_start.elapsed());
-
+        println!("filled final : {:?}",fill_time_final.elapsed());
     }
 
     //test get
     if false{
         match &r.find(&(1 as u64).to_be_bytes().to_vec()){
-            Ok(_)=>{
-                println!("==found");
+            Ok(v)=>{
+                match &r.clear(*v){
+                    Ok(_)=>{
+                        println!("\n>>> clear successfull");
+                    },
+                    Err(_)=>{
+                        println!("!!! clear failed");
+                    }
+                }
             },
             Err(_)=>{
                 println!("!!! find failed");
-            }
-        }
-    }
-
-    if false{
-        match &r.clear(&(1 as u64).to_be_bytes().to_vec()){
-            Ok(_)=>{
-                println!("\n>>> clear successfull");
-            },
-            Err(_)=>{
-                println!("!!! clear failed");
             }
         }
     }
@@ -244,29 +216,15 @@ fn main() {
     //debug reader map
     //-------------------------
 
-    if false{
-        println!("\n{:?}\n",r.empty_start);
-        println!("\n{:?}\n",r.empty_map);
-        println!("\n{:?}\n",r.empty_end);
-    }
+    if false{workers::print_pointers(&mut r);}
+    if false {workers::print_raw_pointers(&mut r);}
+    if false{workers::print_last_100_pointers(&mut r);}
 
     if false{
-        println!("\n{:?}\n",r.empty_map);
+        println!("final map len : {:?} {:?}",r.map.len(),time_start.elapsed().as_millis());
     }
-
-    if true{
-        println!("\n{:?}\n",r.pointers);
-    }
-
     if false{
-        println!("\n{:?}\n",r.corrupt);
-    }
-
-    if false{
-        println!("final map len : {:?} {:?}",r.pointers.len(),time_start.elapsed().as_millis());
-    }
-    if true{
-        println!("final end : {:?}",time_start.elapsed());
+        println!("final end : {:?}",time_start.elapsed().as_millis());
     }
     if false{
         println!("{:?}",r.values);
