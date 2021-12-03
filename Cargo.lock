@@ -150,6 +150,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "gzb_binary_69"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9861091e87817c97c38289999fe034ecdb616e0a16d35016f3a2aabfb11f6a73"
+dependencies = [
+ "byteorder",
+]
+
+[[package]]
 name = "hermit-abi"
 version = "0.1.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -362,7 +371,7 @@ dependencies = [
  "byteorder",
  "crossbeam",
  "flume",
- "gzb_binary_69",
+ "gzb_binary_69 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio",
 ]
 
