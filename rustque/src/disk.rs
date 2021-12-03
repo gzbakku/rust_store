@@ -1,11 +1,11 @@
-use crate::workers::Signal;
+use crate::workers::{Signal,SignalData};
 // use crate::workers::{debug_error,debug_message};
 // use crate::workers::Debugger;
 use tokio::sync::{Notify,Mutex};
-use crate::config::{DiskConfig,DiskMessage,DiskAddMessage};
+use crate::config::{DiskConfig,DiskMessage,DiskAddMessage,DiskGetMessage,DiskRemoveMessage};
 use std::sync::Arc;
 use tokio::fs::{File,OpenOptions};
-use crate::io::{expand,write_chunk};
+use crate::io::{expand,write_chunk,read_chunk,remove_chunk};
 // use std::time::Instant;
 
 // const ERROR:bool = true;
@@ -48,9 +48,16 @@ pub async fn init(config:DiskConfig){
                 handle_expand(&mut config,value,&mut file).await;
             },
             DiskMessage::Add(value)=>{
-                // let hold = Instant::now();
                 handle_add(value,&mut file).await;
-                // println!("added in : {:?}",hold.elapsed());
+            },
+            DiskMessage::AddUn(value)=>{
+                handle_add_unchecked(value,&mut file).await;
+            },
+            DiskMessage::Get(value)=>{
+                handle_get(value,&mut file).await;
+            },
+            DiskMessage::Remove(value)=>{
+                handle_remove(value,&mut file).await;
             }
         }
 
@@ -58,6 +65,35 @@ pub async fn init(config:DiskConfig){
 
 }
 
+async fn handle_remove(message:DiskRemoveMessage,file:&mut File){
+    match remove_chunk(file, message.boundry.0, message.boundry.1 - message.boundry.0 + 1).await{
+        Ok(_)=>{
+            Signal::ok(message.signal).await;
+        },
+        Err(_)=>{}
+    }
+    message.notify.notify_one();
+}
+
+
+async fn handle_get(message:DiskGetMessage,file:&mut File){
+    let len = message.value_boundry.1 - message.value_boundry.0 + 1;
+    let mut read_buffer:Vec<u8> = Vec::with_capacity(len);
+    match read_chunk(file, &mut read_buffer, message.value_boundry.0 as u64, len as u64).await{
+        Ok(_)=>{
+            SignalData::ok(message.signal,read_buffer,message.index).await;
+        },
+        Err(_)=>{}
+    }
+    message.notify.notify_one();
+}
+
+async fn handle_add_unchecked(message:(u64,Vec<u8>),file:&mut File){
+    match write_chunk(file, message.0, message.1).await{
+        Ok(_)=>{},
+        Err(_)=>{}
+    }
+}
 
 //(u64,Vec<u8>,Arc<Mutex<Signal>>,Arc<Notify>)
 async fn handle_add(message:DiskAddMessage,file:&mut File){

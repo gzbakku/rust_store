@@ -71,6 +71,32 @@ impl Signal{
     }
 }
 
+pub struct SignalData{
+    pub result:bool,
+    pub data:Vec<u8>,
+    pub index:u64
+}
+
+impl SignalData{
+    pub fn new()->Arc<Mutex<SignalData>>{
+        Arc::new(
+            Mutex::new(
+                SignalData{
+                    result:false,
+                    data:Vec::new(),
+                    index:0
+                }
+            )
+        )
+    }
+    pub async fn ok(hold:Arc<Mutex<SignalData>>,data:Vec<u8>,index:u64){
+        let mut lock = hold.lock().await;
+        lock.data = data;
+        lock.result = true;
+        lock.index = index;
+    }
+}
+
 // #[derive(Debug)]
 // pub struct Debugger{
 //     updates:Vec<&'static str>,

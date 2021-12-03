@@ -3,7 +3,7 @@ use gzb_binary_69::Reader;
 use flume::bounded as FlumeBounded;
 use flume::Receiver as FlumeReveiver;
 use flume::Sender as FlumeSender;
-use crate::workers::Signal;
+use crate::workers::{Signal,SignalData};
 // use crate::workers::Debugger;
 use std::sync::Arc;
 use tokio::sync::{Notify,Mutex};
@@ -24,6 +24,13 @@ impl Config{
     }
 }
 
+pub struct DiskGetMessage{
+    pub index:u64,
+    pub value_boundry:(usize,usize),//(start,end)
+    pub signal:Arc<Mutex<SignalData>>,
+    pub notify:Arc<Notify>
+}   
+
 pub struct DiskAddMessage{
     // pub debugger:Arc<Mutex<Debugger>>,
     pub start_at:u64,
@@ -32,11 +39,18 @@ pub struct DiskAddMessage{
     pub notify:Arc<Notify>
 }
 
-//(u64,Vec<u8>,Arc<Mutex<Signal>>,Arc<Notify>)
+pub struct DiskRemoveMessage{
+    pub boundry:(usize,usize),//(start,end)
+    pub signal:Arc<Mutex<Signal>>,
+    pub notify:Arc<Notify>
+}
 
 pub enum DiskMessage{
     Expand((Arc<Mutex<Signal>>,Arc<Notify>)),
-    Add(DiskAddMessage)
+    Add(DiskAddMessage),
+    AddUn((u64,Vec<u8>)),
+    Get(DiskGetMessage),
+    Remove(DiskRemoveMessage)
 }
 
 #[derive(Clone)]
@@ -62,15 +76,27 @@ impl DiskConfig{
 }
 
 pub struct MapAddMessage{
-    // pub debugger:Arc<Mutex<Debugger>>,
     pub value:Vec<u8>,
     pub signal:Arc<Mutex<Signal>>,
     pub notify:Arc<Notify>
 }
 
+pub struct MapGetMessage{
+    pub signal:Arc<Mutex<SignalData>>,
+    pub notify:Arc<Notify>
+}
+
+pub struct MapRemoveMessage{
+    pub index:u64,
+    pub signal:Arc<Mutex<Signal>>,
+    pub notify:Arc<Notify>
+}
+
 pub enum MapMessage{
+    Get(MapGetMessage),
     Add(MapAddMessage),
-    Print
+    AddUn(Vec<u8>),
+    Remove(MapRemoveMessage)
 }
 
 pub struct MapConfig{
@@ -78,6 +104,7 @@ pub struct MapConfig{
     pub reader:Reader,
     pub receiver:FlumeReveiver<MapMessage>,
     pub items:Vec<u64>,
+    pub items_in_processing:Vec<u64>,
     pub frame_size:u64
 }
 
@@ -91,7 +118,8 @@ impl MapConfig{
                 reader:r,
                 receiver:receiver,
                 items:items,
-                frame_size:frame_size
+                frame_size:frame_size,
+                items_in_processing:Vec::new()
             },
             sender
         );

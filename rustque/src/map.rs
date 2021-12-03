@@ -2,7 +2,7 @@ use std::sync::Arc;
 use crate::workers::Signal;
 // use crate::workers::{debug_error,debug_message};
 // use crate::workers::Debugger;
-use crate::config::{MapConfig,MapMessage,DiskMessage,MapAddMessage,DiskAddMessage};
+use crate::config::{MapConfig,MapMessage,DiskMessage,MapAddMessage,DiskAddMessage,MapGetMessage,DiskGetMessage,MapRemoveMessage,DiskRemoveMessage};
 use tokio::sync::{Notify};
 use gzb_binary_69::parser::writer::init as BinaryWriter;
 // use std::time::Instant;
@@ -16,45 +16,36 @@ pub async fn init(config:MapConfig){
 
     loop{
 
-        // let hold_time = Instant::now();
-
         let message:MapMessage;
         match config.receiver.recv_async().await{
             Ok(m)=>{
                 message = m;
             },
             Err(_)=>{
-                // debug_error("failed-receive_message-map.rs",ERROR);
                 break;
             }
         }
-
-        // let hold_after = Instant::now();
 
         match message{
             MapMessage::Add(value)=>{
                 handle_add(&mut config,value).await;
             },
-            MapMessage::Print=>{
-                gzb_binary_69::workers::print_last_100_pointers(&mut config.reader);
+            MapMessage::AddUn(value)=>{
+                handle_add_unchecked(&mut config,value).await;
+            },
+            MapMessage::Get(value)=>{
+                handle_get(&mut config,value).await;
+            }
+            MapMessage::Remove(value)=>{
+                handle_remove(&mut config,value).await;
             }
         }
-
-        // println!("message in : {:?}",hold_after.elapsed());
-
-        // println!("mapped in : {:?} {:?}",hold_time.elapsed(),hold_after.elapsed());
 
     }
 
 }
 
 async fn handle_add(config:&mut MapConfig,message:MapAddMessage){
-
-    // let hold_time = Instant::now();
-
-    // debug_message("map add message received",DEBUG);
-
-    //Debuggerupdate(&message.debugger, "map add message received").await;
 
     //find the biggest value
     let biggest_value:u64;
@@ -64,52 +55,26 @@ async fn handle_add(config:&mut MapConfig,message:MapAddMessage){
         biggest_value = config.items[config.items.len()-1]+1;
     }
 
-    // println!("key in : {:?}",hold_time.elapsed());
-
     config.items.push(biggest_value);
 
     let notify = message.notify.clone();
     let value_len = message.value.len();
     let build_message_body:Vec<u8>;
-    // let hold_time = Instant::now();
     match BinaryWriter(biggest_value.to_be_bytes().to_vec(),message.value){
         Ok(v)=>{
             build_message_body = v;
         },
         Err(_)=>{
             message.notify.notify_one();
-            //Debuggererror(&message.debugger, "failed-parse-message-map.rs").await;
-            // debug_error("failed-parse-message-map.rs",ERROR);
             return;
         }
     }
-    // println!("parsed in : {:?}",hold_time.elapsed());
-
-    // let mut index:u32 = 0;
 
     loop{
 
-        // if index == 10000{
-        //     // debug_message("overflow",DEBUG);
-        //     notify.notify_one();
-        //     //Debuggererror(&message.debugger, "overflow-send-message-map.rs").await;
-        //     // debug_error("overflow-send-message-map.rs",ERROR);
-        //     break;
-        // }
-
         match config.reader.fill(biggest_value.to_be_bytes().to_vec(),value_len){
             Ok(write)=>{
-                // println!("filled in : {:?}",hold_time.elapsed());
-                // debug_message("added to map",DEBUG);
                 match config.disk_sender.send_async(DiskMessage::Add(
-                    /*
-                        (
-                            write.start as u64,
-                            build_message_body,
-                            message.signal,
-                            message.notify
-                        )
-                    */
                     DiskAddMessage{
                         // debugger:message.debugger.clone(),
                         start_at:write.start as u64,
@@ -118,17 +83,11 @@ async fn handle_add(config:&mut MapConfig,message:MapAddMessage){
                         notify:message.notify
                     }
                 )).await{
-                    Ok(_)=>{
-                        //Debuggerupdate(&message.debugger, "disk add message sent").await;
-                        // debug_message("disk add message sent",DEBUG);
-                    },
+                    Ok(_)=>{},
                     Err(_)=>{
-                        //Debuggererror(&message.debugger, "failed-send-message-map.rs").await;
-                        // debug_error("failed-send-message-map.rs",ERROR);
                         notify.notify_one();
                     }
                 }
-                // println!("sent in : {:?}",hold_time.elapsed());
                 break;
             },
             Err(e)=>{
@@ -137,8 +96,6 @@ async fn handle_add(config:&mut MapConfig,message:MapAddMessage){
                     match config.reader.expand(config.frame_size.clone() as usize){
                         Ok(_)=>{},
                         Err(_)=>{
-                            //Debuggererror(&message.debugger, "failed-expand-reader-map.rs").await;
-                            // debug_error("failed-expand-reader-map.rs",ERROR);
                             notify.notify_one();
                             break;
                         }
@@ -150,33 +107,169 @@ async fn handle_add(config:&mut MapConfig,message:MapAddMessage){
                     match config.disk_sender.send_async(DiskMessage::Expand((signal.clone(),waker))).await{
                         Ok(_)=>{},
                         Err(_)=>{
-                            //Debuggererror(&message.debugger, "failed-send_expand_message-map.rs").await;
-                            // debug_error("failed-send_expand_message-map.rs",ERROR);
                             notify.notify_one();
                             break;
                         }
                     }
                     sleeper.notified().await;
                     if !Signal::check(signal).await{
-                        //Debuggererror(&message.debugger, "failed-expand-disk-map.rs").await;
-                        // debug_error("failed-expand-disk-map.rs",ERROR);
                         notify.notify_one();
                         break;
                     }
                 } else {
-                    //Debuggererror(&message.debugger, "failed-reader-fill-map.rs").await;
-                    // debug_error("failed-reader-fill-map.rs",ERROR);
                     notify.notify_one();
                     break;
                 }
             }//error
         }//match fill
 
-        // index += 1;
-
     }//loop reader fill and expand
 
     // println!("added in : {:?}",hold_time.elapsed());
+
+}
+
+async fn handle_add_unchecked(config:&mut MapConfig,message:Vec<u8>){
+
+    //find the biggest value
+    let biggest_value:u64;
+    if config.items.len() == 0{
+        biggest_value = 1;
+    } else{
+        biggest_value = config.items[config.items.len()-1]+1;
+    }
+
+    config.items.push(biggest_value);
+
+    let value_len = message.len();
+    let build_message_body:Vec<u8>;
+    match BinaryWriter(biggest_value.to_be_bytes().to_vec(),message){
+        Ok(v)=>{
+            build_message_body = v;
+        },
+        Err(_)=>{
+            return;
+        }
+    }
+
+    loop{
+
+        match config.reader.fill(biggest_value.to_be_bytes().to_vec(),value_len){
+            Ok(write)=>{
+                match config.disk_sender.send_async(DiskMessage::AddUn((write.start as u64,build_message_body))).await{
+                    Ok(_)=>{},
+                    Err(_)=>{}
+                }
+                break;
+            },
+            Err(e)=>{
+                if e == "full"{
+                    //expand map
+                    match config.reader.expand(config.frame_size.clone() as usize){
+                        Ok(_)=>{},
+                        Err(_)=>{
+                            break;
+                        }
+                    }
+                    //expand disk
+                    let signal = Signal::new();
+                    let waker = Arc::new(Notify::new());
+                    let sleeper = waker.clone();
+                    match config.disk_sender.send_async(DiskMessage::Expand((signal.clone(),waker))).await{
+                        Ok(_)=>{},
+                        Err(_)=>{
+                            break;
+                        }
+                    }
+                    sleeper.notified().await;
+                    if !Signal::check(signal).await{
+                        break;
+                    }
+                } else {
+                    break;
+                }
+            }//error
+        }//match fill
+
+    }//loop reader fill and expand
+
+}
+
+async fn handle_remove(config:&mut MapConfig,message:MapRemoveMessage){
+
+    let boundry:(usize,usize);
+    let key = message.index.to_be_bytes().to_vec();
+    match config.reader.pointers.get(&key){
+        Some(pointer)=>{
+            boundry = pointer.0;
+        },
+        None=>{
+            message.notify.notify_one();
+            return;
+        }
+    }
+
+    match config.reader.clear(&key){
+        Ok(_)=>{},
+        Err(_)=>{
+            message.notify.notify_one();
+            return;
+        }
+    }
+
+    let notify = message.notify.clone();
+    match config.disk_sender.send_async(DiskMessage::Remove(
+        DiskRemoveMessage{
+            boundry:boundry,
+            signal:message.signal,
+            notify:message.notify
+        }
+    )).await{
+        Ok(_)=>{},
+        Err(_)=>{
+            notify.notify_one();
+        }
+    }
+
+}
+
+async fn handle_get(config:&mut MapConfig,message:MapGetMessage){
+
+    if config.items.len() == 0{
+        message.notify.notify_one();
+        return;
+    }
+
+    let index:u64 = config.items.remove(0);
+    let notify = message.notify.clone();
+    config.items_in_processing.push(index);
+
+    let value_boundry:(usize,usize);
+    match config.reader.pointers.get(
+        &index.to_be_bytes().to_vec()
+    ){
+        Some(pointer)=>{
+            value_boundry = pointer.1;
+        },
+        None=>{
+            notify.notify_one();
+            return;
+        }
+    }
+
+    match config.disk_sender.send_async(DiskMessage::Get(
+        DiskGetMessage{
+            index:index,
+            value_boundry:value_boundry,
+            signal:message.signal,
+            notify:message.notify
+        }
+    )).await{
+        Ok(_)=>{},
+        Err(_)=>{
+            notify.notify_one();
+        }
+    }
 
 }
 

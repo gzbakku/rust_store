@@ -133,6 +133,31 @@ pub async fn expand(file:&mut File,size:&u64)->Result<(),&'static str>{
 
 }
 
+pub async fn remove_chunk(file:&mut File,start_at:usize,len:usize)->Result<(),&'static str>{
+
+    match file.seek(SeekFrom::Start(start_at as u64)).await{
+        Ok(_)=>{},
+        Err(_e)=>{
+            return Err("failed-seek");
+        }
+    }
+
+    let mut collect:Vec<u8> = Vec::with_capacity(len as usize);
+    for _ in 0..len{
+        collect.push(0);
+    }
+
+    match file.write(&collect).await{
+        Ok(_)=>{
+            return Ok(());
+        },
+        Err(_)=>{
+            return Err("failed-build_frame-create_file");
+        }
+    }
+
+}
+
 pub async fn write_chunk(file:&mut File,start_at:u64,buffer:Vec<u8>)->Result<(),&'static str>{
 
     // let hold = Instant::now();
@@ -180,6 +205,7 @@ pub async fn read_chunk(file:&mut File,buffer:&mut Vec<u8>,start_at:u64,read_len
 
 }
 
+#[allow(dead_code)]
 pub async fn read_full(path:String){
 
     let mut file_builder = OpenOptions::new();

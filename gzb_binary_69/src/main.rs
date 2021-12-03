@@ -58,7 +58,7 @@ fn main() {
     let mut last_key_filled:u64 = 1;
 
     //add for remove test
-    if true{
+    if false{
         // collect.append(&mut vec![0,0,0,0]);
         collect.append(&mut parsed_1);
         // collect.append(&mut vec![1,2,3]);
@@ -71,7 +71,7 @@ fn main() {
     }
 
     //add for line quantity test
-    if false {
+    if true {
         // let mut index:u64 = 1;
         for _ in 0..1000000{
             let mut build = parser::writer::init(
@@ -82,7 +82,7 @@ fn main() {
             collect.append(&mut build);
             last_key_filled += 1;
         }
-        collect.append(&mut vec![0,0,0,0]);
+        // collect.append(&mut vec![0,0,0,0]);
         println!("lines alloted : {:?} {:?} {:?}",last_key_filled,collect.len(),time_start.elapsed().as_millis());
     }
 
@@ -163,9 +163,9 @@ fn main() {
     //test fill
     if false{
         let fill_time_final = Instant::now();
-        for _ in 0..10{
+        for _ in 0..100{
             // let fill_time = Instant::now();
-            for _ in 0..100000{
+            for _ in 0..1000{
                 let key = last_key_filled.to_be_bytes().to_vec();
                 let value = String::from("value").as_bytes().to_vec();
                 // let fill_time = Instant::now();
@@ -254,7 +254,7 @@ fn main() {
         println!("\n{:?}\n",r.empty_map);
     }
 
-    if true{
+    if false{
         println!("\n{:?}\n",r.pointers);
     }
 

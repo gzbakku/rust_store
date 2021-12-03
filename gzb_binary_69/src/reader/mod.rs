@@ -346,10 +346,23 @@ impl Reader{
     }
     pub fn map(&mut self,buffer:&mut Vec<u8>){
 
+        // println!("mapping len : {:?}",buffer.len());
+
         loop{
 
+            // if self.buffer.len() == 0{
+            //     break;
+            // }
+
+            // let pointer_time = Instant::now();
             match read(self,buffer){
                 Ok(v)=>{
+
+                    // println!("pointer_time : {:?}",pointer_time.elapsed());
+
+                    // println!("pointer found");
+
+                    // println!("{:?}",buffer.len());
 
                     //extract pointer from buffer
                     let pointer_len = v.boundry.0.1-v.boundry.0.0+1;
@@ -360,6 +373,7 @@ impl Reader{
 
                     //collect values
                     if self.find_values && !self.get_values_controll{
+                        // println!("find values");
                         for i in self.to_find.iter(){
                             if i == &v.key.2{
                                 let mut collect_value:Vec<u8> = vec![];
@@ -371,6 +385,7 @@ impl Reader{
                         }
                     } else
                     if self.get_values_controll{
+                        // println!("get values");
                         let mut collect_value:Vec<u8> = vec![];
                         for i in v.value.1.0..v.value.1.1{
                             collect_value.push(old_buffer[i]);
@@ -391,8 +406,16 @@ impl Reader{
                         }
                     }
 
+                    // println!("old buffer : {:?}",old_buffer.len());
+
+                    
+
                     //place new buffer
                     self.buffer = new_buffer;
+
+                    // println!("pointer_finish : {:?}",pointer_time.elapsed());
+
+                    
 
                 },
                 Err(_e)=>{
@@ -544,11 +567,15 @@ fn read(reader:&mut Reader,buffer:&mut Vec<u8>)->Result<Pointer,&'static str>{
         
     //find flag
     if reader.flag.0 == false {
+        // let start_flag_time = Instant::now();
         match vector_in_vector(&reader.buffer,&vec![0,1,0],reader.buffer_cursor){
             Ok(l)=>{
+                // println!("start_flag_time : {:?}",start_flag_time.elapsed());
                 reader.no_flag_in_buffer = false;
                 if l.0 > 0{
+                    // let unhandled_time = Instant::now();
                     unhandled::init(reader,l.0);
+                    // println!("unhandled_time : {:?}",unhandled_time.elapsed());
                 }
                 if true {
                     reader.flag.0 = true;

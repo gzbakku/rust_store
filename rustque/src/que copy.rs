@@ -8,12 +8,10 @@ use tokio::fs::File;
 use tokio::spawn as TokioSpawn;
 use flume::Sender as FlumeSender;
 use crate::workers::{u64_from_bytes};
-use crate::workers::{Signal,SignalData};
-use tokio::sync::{Notify};
+use crate::workers::Signal;
+use tokio::sync::Notify;
 use std::sync::Arc;
-use crate::config::{MapConfig,MapMessage,DiskConfig,MapAddMessage,MapGetMessage,MapRemoveMessage};
-
-// use tokio::runtime::Builder as TokioRuntimeBuilder;
+use crate::config::{MapConfig,MapMessage,DiskConfig,MapAddMessage};
 
 #[derive(Debug,Clone)]
 pub struct Que{
@@ -76,23 +74,41 @@ impl Que{
     pub async fn add(&mut self,value:Vec<u8>)->Result<(),()>{
 
         let signal = Signal::new();
+        // let debugger = Debugger::new();
         let waker = Arc::new(Notify::new());
         let sleeper = waker.clone();
 
+        //debug_message("\nadding",DEBUG);
+
+        //Debugger::update(&debugger, "adding").await;
+
         match self.sender.send_async(
             MapMessage::Add(MapAddMessage{
+                // debugger:debugger.clone(),
                 value:value,
                 signal:signal.clone(),
                 notify:waker
-            }) 
+            }) /*(value,signal.clone(),waker))*/
         ).await{
-            Ok(_)=>{},
+            Ok(_)=>{
+                //Debugger::update(&debugger, "map add message sent").await;
+                //debug_message("map add message sent",DEBUG);
+            },
             Err(_)=>{
+                //debug_error("failed-send_add_message-que.rs",ERROR);
                 return Err(());
             }
         }
 
+        // sleeper.notified().await;
+
+        //debug_message("listening for notification",DEBUG);
+        //Debugger::update(&debugger, "listening for notification").await;
+
         sleeper.notified().await;
+
+        //debug_message("noti received",DEBUG);
+        //Debugger::update(&debugger, "noti received").await;
 
         if Signal::check(signal).await{
             return Ok(());
@@ -111,61 +127,6 @@ impl Que{
             }
         }
     }//add unchecked
-    pub async fn get(&mut self)->Result<(Vec<u8>,u64),&'static str>{
-
-        let signal = SignalData::new();
-        let waker = Arc::new(Notify::new());
-        let sleeper = waker.clone();
-
-        match self.sender.send_async(
-            MapMessage::Get(MapGetMessage{
-                signal:signal.clone(),
-                notify:waker
-            }) 
-        ).await{
-            Ok(_)=>{},
-            Err(_)=>{
-                return Err("failed-send-map-message");
-            }
-        }
-
-        sleeper.notified().await;
-
-        let hold = signal.lock().await;
-        if !hold.result{
-            return Err("failed-find_in-map");
-        }
-        return Ok((hold.data.clone(),hold.index.clone()));
-
-    }
-    pub async fn remove(&mut self,index:u64)->Result<(),&'static str>{
-
-        let signal = Signal::new();
-        let waker = Arc::new(Notify::new());
-        let sleeper = waker.clone();
-
-        match self.sender.send_async(
-            MapMessage::Remove(MapRemoveMessage{
-                index:index,
-                signal:signal.clone(),
-                notify:waker
-            }) 
-        ).await{
-            Ok(_)=>{},
-            Err(_)=>{
-                return Err("failed-send-map-message");
-            }
-        }
-
-        sleeper.notified().await;
-
-        if Signal::check(signal).await{
-            return Ok(());
-        } else {
-            return Err("failed-listen-signal");
-        }
-
-    }
 }
 
 async fn build_map(metadata:Metadata,file:&mut File)->Result<(Reader,Vec<u64>),&'static str>{

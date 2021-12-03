@@ -1,8 +1,16 @@
 [package]
 name = "rustque"
-version = "0.1.0"
+version = "1.0.0"
 authors = ["gzbakku <gzbakku@gmail.com>"]
 edition = "2018"
+
+description = "this is a fast on disk perstant memeory mapped que for rust it stores Vec<u8> to a file on a disk."
+homepage = "https://github.com/gzbakku/rust_store"
+repository = "https://github.com/gzbakku/rust_store"
+readme = "README.md"
+keywords = ["database", "que","data","store","disk","persistant"]
+categories = ["database-implementations", "data-structures","Database interfaces"]
+license = "GPL-3.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
