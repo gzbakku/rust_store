@@ -8,7 +8,7 @@ description = "this is a fast on disk perstant memeory mapped que for rust it st
 homepage = "https://github.com/gzbakku/rust_store"
 repository = "https://github.com/gzbakku/rust_store"
 readme = "README.md"
-keywords = ["database", "que","data","store","disk","persistant"]
+keywords = ["database", "que","data","store","disk"]
 categories = ["database-implementations", "data-structures","Database interfaces"]
 license = "GPL-3.0"
 
