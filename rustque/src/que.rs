@@ -11,7 +11,7 @@ use crate::workers::{u64_from_bytes};
 use crate::workers::{Signal,SignalData};
 use tokio::sync::{Notify};
 use std::sync::Arc;
-use crate::config::{MapConfig,MapMessage,DiskConfig,MapAddMessage,MapGetMessage,MapRemoveMessage};
+use crate::config::{MapConfig,MapMessage,DiskConfig,MapAddMessage,MapGetMessage,MapRemoveMessage,MapResetMessage};
 
 // use tokio::runtime::Builder as TokioRuntimeBuilder;
 
@@ -164,6 +164,33 @@ impl Que{
         } else {
             return Err("failed-listen-signal");
         }
+
+    }
+    pub async fn reset(&mut self,index:u64)->Result<(),&'static str>{
+
+        let signal = Signal::new();
+        let waker = Arc::new(Notify::new());
+        let sleeper = waker.clone();
+
+        match self.sender.send_async(
+            MapMessage::Reset(MapResetMessage{
+                index:index,
+                signal:signal.clone(),
+                notify:waker
+            }) 
+        ).await{
+            Ok(_)=>{},
+            Err(_)=>{
+                return Err("failed-send-map-reset-message");
+            }
+        }
+
+        sleeper.notified().await;
+
+        if !Signal::check(signal).await{
+            return Err("failed-find_in-map");
+        }
+        return Ok(());
 
     }
 }

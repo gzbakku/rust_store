@@ -92,11 +92,18 @@ pub struct MapRemoveMessage{
     pub notify:Arc<Notify>
 }
 
+pub struct MapResetMessage{
+    pub index:u64,
+    pub signal:Arc<Mutex<Signal>>,
+    pub notify:Arc<Notify>
+}
+
 pub enum MapMessage{
     Get(MapGetMessage),
     Add(MapAddMessage),
     AddUn(Vec<u8>),
-    Remove(MapRemoveMessage)
+    Remove(MapRemoveMessage),
+    Reset(MapResetMessage)
 }
 
 pub struct MapConfig{

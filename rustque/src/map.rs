@@ -2,7 +2,11 @@ use std::sync::Arc;
 use crate::workers::Signal;
 // use crate::workers::{debug_error,debug_message};
 // use crate::workers::Debugger;
-use crate::config::{MapConfig,MapMessage,DiskMessage,MapAddMessage,DiskAddMessage,MapGetMessage,DiskGetMessage,MapRemoveMessage,DiskRemoveMessage};
+use crate::config::{
+    MapConfig,MapMessage,DiskMessage,MapAddMessage,
+    DiskAddMessage,MapGetMessage,DiskGetMessage,
+    MapRemoveMessage,DiskRemoveMessage,MapResetMessage
+};
 use tokio::sync::{Notify};
 use gzb_binary_69::parser::writer::init as BinaryWriter;
 // use std::time::Instant;
@@ -38,6 +42,9 @@ pub async fn init(config:MapConfig){
             }
             MapMessage::Remove(value)=>{
                 handle_remove(&mut config,value).await;
+            },
+            MapMessage::Reset(value)=>{
+                handle_reset(&mut config,value).await;
             }
         }
 
@@ -270,6 +277,33 @@ async fn handle_get(config:&mut MapConfig,message:MapGetMessage){
             notify.notify_one();
         }
     }
+
+}
+
+async fn handle_reset(config:&mut MapConfig,message:MapResetMessage){
+
+    if config.items_in_processing.len() == 0{
+        message.notify.notify_one();
+        return;
+    }
+
+    let index:usize;
+    match config.items_in_processing.iter().position(|&x| x == message.index){
+        Some(i)=>{
+            index = i;
+        },
+        None=>{
+            message.notify.notify_one();
+        return;
+        }
+    }
+
+    let hold = config.items_in_processing.remove(index);
+    config.items.push(hold);
+    config.items.sort();
+    Signal::ok(message.signal).await;
+    message.notify.notify_one();
+    return;
 
 }
 

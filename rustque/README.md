@@ -38,18 +38,18 @@ async fn main() {
     //---------------------------
     //write ietsm to the que
     //---------------------------
-    if true{
+    if false{
         let write_time_final = Instant::now();
         let sleeper = Arc::new(Notify::new());
         let waker = sleeper.clone();
-        let no_of_spawns = 10;
+        let no_of_spawns = 1;
         for _ in 0..no_of_spawns{
             let que_to_move = que.clone();
             let waker_to_move = waker.clone();
             tokio::spawn(async move {
                 // let write_spawn_time = Instant::now();
                 let mut que = que_to_move;
-                for _n in 0..5000{
+                for _n in 0..1{
                     match que.add(vec![1,2,3]).await{
                         Ok(_)=>{
                             // println!(">>> success-que-add {:?}",_n);
@@ -94,6 +94,27 @@ async fn main() {
             }
         }
         println!("remove_time_final : {:?}",remove_time_final.elapsed());
+    }
+
+    if true{
+        for _ in 0..5{
+            match que.get().await{
+                Ok(_v)=>{
+                    println!(">>> success-que-get {:?}",_v);
+                    match que.reset(_v.1).await{
+                        Ok(_v)=>{
+                            println!(">>> success-que-reset");
+                        },
+                        Err(_e)=>{
+                            println!("!!! failed-que-reset : {:?}",_e);
+                        }
+                    }
+                },
+                Err(_e)=>{
+                    println!("!!! failed-que-get : {:?}",_e);
+                }
+            }
+        }
     }
 
     println!("final in : {:?}",hold.elapsed());
