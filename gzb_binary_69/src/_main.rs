@@ -58,22 +58,27 @@ fn main() {
     let mut last_key_filled:u64 = 1;
 
     //add for remove test
-    if false{
-        // collect.append(&mut vec![0,0,0,0]);
+    if true{
+        collect.append(&mut vec![0,0,0,0]);
         collect.append(&mut parsed_1);
+        // for _ in 0..53{collect.push(0);}
         // collect.append(&mut vec![1,2,3]);
-        // collect.append(&mut vec![0,0,0,0]);
+        collect.append(&mut vec![0,0,0,0]);
         collect.append(&mut parsed_2);
         // collect.append(&mut vec![0,0,0,0]);
-        collect.append(&mut parsed_3);
+        // collect.append(&mut parsed_3);
         // collect.append(&mut vec![0,0,0,0]);
         last_key_filled = 4;
     }
 
+    if false {
+        for _ in 0..500{collect.push(0);}
+    }
+
     //add for line quantity test
-    if true {
+    if false {
         // let mut index:u64 = 1;
-        for _ in 0..1000000{
+        for _ in 0..5{
             let mut build = parser::writer::init(
                 last_key_filled.to_be_bytes().to_vec(),
                 String::from("value").as_bytes().to_vec(),
@@ -88,7 +93,7 @@ fn main() {
 
     //add for empty space test
     if false {
-        for _ in 0..1_999_999{
+        for _ in 0..10_000{
             collect.push(0);
         }
         println!("bytes alloted : {:?} {:?}",collect.len(),time_start.elapsed().as_millis());
@@ -106,7 +111,7 @@ fn main() {
     //-------------------------
 
     //test find keys
-    if true{
+    if false{
         r.enable_find();
         r.find_key((1 as u64).to_be_bytes().to_vec());
         r.find_key((2 as u64).to_be_bytes().to_vec());
@@ -163,9 +168,9 @@ fn main() {
     //test fill
     if false{
         let fill_time_final = Instant::now();
-        for _ in 0..100{
+        for _ in 0..1{
             // let fill_time = Instant::now();
-            for _ in 0..1000{
+            for _ in 0..1{
                 let key = last_key_filled.to_be_bytes().to_vec();
                 let value = String::from("value").as_bytes().to_vec();
                 // let fill_time = Instant::now();
@@ -189,7 +194,9 @@ fn main() {
         let clear_time_final = Instant::now();
         let hold_pointers = r.pointers.clone();
         let keys = hold_pointers.keys();
+        let mut _index = 0;
         for key in keys{
+            // if index == 10 {break;}
             // let clear_time = Instant::now();
             match &r.clear(key){
                 Ok(_)=>{
@@ -199,9 +206,16 @@ fn main() {
                     println!("==clear failed : {:?}",_e);
                 }
             }
+            _index += 1;
         }
         println!("clear_time_final : {:?} {:?}",clear_time_final.elapsed(),time_start.elapsed());
+    }
 
+    if true{
+        println!("{:?}",r.empty_map);
+        println!("{:?}",r.empty_end);
+        println!("{:?}",r.empty_start);
+        println!("{:?}",r.pointers);
     }
 
     //test get

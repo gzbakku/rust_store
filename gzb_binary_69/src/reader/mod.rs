@@ -216,12 +216,23 @@ impl Reader{
         //edit empty
         //----------------------------
         if total_len == empty.0{
+            match self.empty_map.get_mut(&empty_index){
+                Some(e)=>{
+                    self.empty_start.remove(&e.1.0);
+                    self.empty_end.remove(&e.1.1);
+                },
+                None=>{
+                    return Err("failed-edit-empty");
+                }
+            }
             self.empty_map.remove(&empty_index);
         } else {
             match self.empty_map.get_mut(&empty_index){
                 Some(e)=>{
+                    self.empty_start.remove(&e.1.0);
                     e.1.0 = empty.1.0 + total_len;
                     e.0 = e.1.1 - e.1.0 + 1;
+                    self.empty_start.insert(e.1.0,empty_index);
                 },
                 None=>{
                     return Err("failed-edit-empty");
@@ -256,6 +267,8 @@ impl Reader{
 
         let mut previous_empty_index:usize = 0;
         let mut previous_empty_found = false;
+        //if boundry start position is greater then zero
+        //check if there is a empty ending at previous position
         if pointer.0.0 > 0{
             match self.empty_end.get(&(pointer.0.0 - 1)){
                 Some(v)=>{
@@ -277,6 +290,7 @@ impl Reader{
         }
 
         if previous_empty_found{
+            println!("previous found");
             let mut next_empty_end = 0;
             //remove previous start pointer
             self.empty_end.remove(&self.empty_map[&previous_empty_index].1.1);
