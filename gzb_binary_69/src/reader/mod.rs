@@ -290,7 +290,7 @@ impl Reader{
         }
 
         if previous_empty_found{
-            println!("previous found");
+            // println!("previous found");
             let mut next_empty_end = 0;
             //remove previous start pointer
             self.empty_end.remove(&self.empty_map[&previous_empty_index].1.1);
