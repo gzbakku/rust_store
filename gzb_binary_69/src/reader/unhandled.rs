@@ -12,13 +12,13 @@ pub fn init(reader:&mut Reader,end_cursor:usize){
         return;
     }
 
-    if end_cursor < 100{
-        crate::workers::print_range(&reader.buffer, 0, end_cursor);
-    } else {
-        crate::workers::print_range(&reader.buffer, 0, 100);
-    }
+    // if end_cursor < 100{
+    //     crate::workers::print_range(&reader.buffer, 0, end_cursor);
+    // } else {
+    //     crate::workers::print_range(&reader.buffer, 0, 100);
+    // }
 
-    println!("corrupt len : {:?}",end_cursor);
+    // println!("corrupt len : {:?}",end_cursor);
     
     //make pointers
     let mut counter:usize = 0;
