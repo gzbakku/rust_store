@@ -85,6 +85,7 @@ pub fn init(reader:&mut Reader)->Result<(),()>{
         reader.end.1 = reader.buffer_cursor+0+reader.value.2 as usize;
         reader.end.2 = reader.buffer_cursor+2+reader.value.2 as usize;
         reader.buffer_cursor += 2 + reader.value.2 as usize;
+        // println!("end found");
         // println!("{:?}",reader.end);
     }
 

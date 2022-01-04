@@ -582,6 +582,7 @@ fn read(reader:&mut Reader,buffer:&mut Vec<u8>)->Result<Pointer,&'static str>{
     //find flag
     if reader.flag.0 == false {
         // let start_flag_time = Instant::now();
+        // println!("reader.buffer_cursor : {:?}",reader.buffer_cursor);
         match vector_in_vector(&reader.buffer,&vec![0,1,0],reader.buffer_cursor){
             Ok(l)=>{
                 // println!("start_flag_time : {:?}",start_flag_time.elapsed());
@@ -599,10 +600,11 @@ fn read(reader:&mut Reader,buffer:&mut Vec<u8>)->Result<Pointer,&'static str>{
                 }
             },
             Err(_)=>{
+                
                 if reader.buffer.len() > 6{
                     reader.buffer_cursor = reader.buffer.len() - 5;
                 } else {
-                    reader.buffer_cursor = reader.buffer.len();
+                    reader.buffer_cursor = 0;
                 }
                 return Err("not_found-flag");
             }

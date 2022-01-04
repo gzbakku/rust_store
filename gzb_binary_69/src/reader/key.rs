@@ -28,6 +28,7 @@ pub fn init(reader:&mut Reader)->Result<(),()>{
             reader.buffer[reader.buffer_cursor+1] != 2 ||
             reader.buffer[reader.buffer_cursor+2] != 0 
         {
+            // crate::workers::print_range(&reader.buffer, 0, 100);
             p_error("invalid-flag-key_len-buff_size-key",ERROR);
             reader.flush();
             return Err(());

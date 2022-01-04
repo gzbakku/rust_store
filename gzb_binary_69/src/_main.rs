@@ -11,20 +11,32 @@ fn main() {
     let time_start = Instant::now();
 
     //-------------------------
+    //make big value
+    //-------------------------
+
+    let mut big_value = vec![];
+    let mut last_put = 0;
+    loop {
+        if big_value.len() == 1024{break;}
+        if last_put == 200{last_put = 1;} else {last_put += 1;}
+        big_value.push(last_put);
+    }
+
+    //-------------------------
     //parse test
     //-------------------------
 
-    let mut parsed_1 = parser::writer::init(
+    let mut _parsed_1 = parser::writer::init(
         (1 as u64).to_be_bytes().to_vec(),
         String::from("value 12").as_bytes().to_vec(),
     ).unwrap();
 
-    let mut parsed_2 = parser::writer::init(
+    let mut _parsed_2 = parser::writer::init(
         (2 as u64).to_be_bytes().to_vec(),
         String::from("value 23334").as_bytes().to_vec(),
     ).unwrap();
 
-    let mut parsed_3 = parser::writer::init(
+    let mut _parsed_3 = parser::writer::init(
         (3 as u64).to_be_bytes().to_vec(),
         String::from("value 999999991").as_bytes().to_vec(),
     ).unwrap();
@@ -57,16 +69,40 @@ fn main() {
 
     let mut last_key_filled:u64 = 1;
 
-    //add for remove test
     if true{
+
+        // collect.append(&mut parser::writer::init(
+        //     (30032 as u64).to_be_bytes().to_vec(),
+        //     big_value.clone()
+        // ).unwrap());
+
+        // collect.append(&mut parser::writer::init(
+        //     (30033 as u64).to_be_bytes().to_vec(),
+        //     big_value.clone()
+        // ).unwrap());
+
+        // collect.append(&mut parser::writer::init(
+        //     (30034 as u64).to_be_bytes().to_vec(),
+        //     big_value.clone()
+        // ).unwrap());
+
+        println!("custom len : {:?}",parser::writer::init(
+            (30034 as u64).to_be_bytes().to_vec(),
+            big_value.clone()
+        ).unwrap().len());
+
+    }
+
+    //add for remove test
+    if false{
         collect.append(&mut vec![0,0,0,0]);
-        collect.append(&mut parsed_1);
+        collect.append(&mut _parsed_1);
         // for _ in 0..53{collect.push(0);}
         // collect.append(&mut vec![1,2,3]);
         collect.append(&mut vec![0,0,0,0]);
-        collect.append(&mut parsed_2);
+        collect.append(&mut _parsed_2);
         // collect.append(&mut vec![0,0,0,0]);
-        // collect.append(&mut parsed_3);
+        // collect.append(&mut _parsed_3);
         // collect.append(&mut vec![0,0,0,0]);
         last_key_filled = 4;
     }
@@ -76,19 +112,19 @@ fn main() {
     }
 
     //add for line quantity test
-    if false {
+    if true {
         // let mut index:u64 = 1;
-        for _ in 0..5{
+        for _ in 0..500_000{
             let mut build = parser::writer::init(
                 last_key_filled.to_be_bytes().to_vec(),
-                String::from("value").as_bytes().to_vec(),
+                big_value.clone()
             ).unwrap();
             // collect.append(&mut vec![0,0,0,0]);
             collect.append(&mut build);
             last_key_filled += 1;
         }
         // collect.append(&mut vec![0,0,0,0]);
-        println!("lines alloted : {:?} {:?} {:?}",last_key_filled,collect.len(),time_start.elapsed().as_millis());
+        println!("lines alloted : {:?} {:?} {:?}ms",last_key_filled,collect.len(),time_start.elapsed().as_millis());
     }
 
     //add for empty space test
@@ -97,6 +133,35 @@ fn main() {
             collect.push(0);
         }
         println!("bytes alloted : {:?} {:?}",collect.len(),time_start.elapsed().as_millis());
+    }
+
+    //-------------------------
+    //debug input buffer
+    //-------------------------
+
+    if false{
+
+        //30034 starts at 9_099_999
+        //30033 starts at 9_099_696
+
+        let test_build = parser::writer::init(
+            (30034 as u64).to_be_bytes().to_vec(),
+            big_value.clone()
+        ).unwrap();
+
+        let mut test = vec![];
+        for i in 9_099_999-10..9_099_999+303+10{
+            test.push(collect[i].clone());
+        }
+
+        // println!("{:?}",test);
+
+        if test_build == test{
+            println!("======= are equal");
+        }
+
+        // return;
+
     }
 
     //-------------------------
@@ -111,7 +176,7 @@ fn main() {
     //-------------------------
 
     //test find keys
-    if false{
+    if true{
         r.enable_find();
         r.find_key((1 as u64).to_be_bytes().to_vec());
         r.find_key((2 as u64).to_be_bytes().to_vec());
@@ -134,11 +199,11 @@ fn main() {
     let mut buffer = vec![];
     for i in collect{
         if &buffer.len() == &100000{
-            &pool.push(buffer.clone());
-            &buffer.clear();
-            &buffer.push(i);
+            pool.push(buffer.clone());
+            buffer.clear();
+            buffer.push(i);
         } else {
-            &buffer.push(i);
+            buffer.push(i);
         }
     }
     if buffer.len() > 0{
@@ -152,13 +217,15 @@ fn main() {
             break;
         }
         let mut part = pool.remove(0);
-        &r.map(&mut part);
+        r.map(&mut part);
     }
-    match &r.end(){
-        Ok(_)=>{
-            println!("map ended : {:?} {:?}",reader_time.elapsed(),time_start.elapsed());
-        },
-        Err(_)=>{}
+    if true{
+        match &r.end(){
+            Ok(_)=>{
+                println!("map ended : {:?} {:?}",reader_time.elapsed(),time_start.elapsed());
+            },
+            Err(_)=>{}
+        }
     }
 
     //-------------------------
@@ -212,17 +279,18 @@ fn main() {
     }
 
     if true{
-        println!("{:?}",r.empty_map);
-        println!("{:?}",r.empty_end);
-        println!("{:?}",r.empty_start);
-        println!("{:?}",r.pointers);
+        // println!("{:?}",r.empty_map);
+        // println!("{:?}",r.empty_end);
+        // println!("{:?}",r.empty_start);
+        println!("{:?}",r.pointers.len());
+        println!("{:?}",r.corrupt.len());
     }
 
     //test get
     if false{
-        match &r.find(&(1 as u64).to_be_bytes().to_vec()){
-            Ok(_)=>{
-                println!("==found");
+        match &r.find(&(30033 as u64).to_be_bytes().to_vec()){
+            Ok(_v)=>{
+                println!("== found : {:?}",_v);
             },
             Err(_)=>{
                 println!("!!! find failed");
@@ -252,6 +320,28 @@ fn main() {
                 println!("==expand failed");
             }
         }
+    }
+
+    //-------------------------
+    //complex debug reader map
+    //-------------------------
+
+    if false {
+        let mut keys:Vec<u64> = vec![];
+        for i in r.pointers.keys(){
+            keys.push(crate::workers::u64_from_bytes(i.to_vec()).unwrap());
+        }
+
+        keys.sort();
+
+        let mut not_found = vec![];
+        for b in 1..30_150{
+            if !keys.contains(&b){
+                not_found.push(b);
+            }
+        }
+
+        println!("{:?}",not_found);
     }
 
     //-------------------------

@@ -44,6 +44,15 @@ pub fn p_error(e:&'static str,p:bool){
 }
 
 #[allow(dead_code)]
+pub fn print_range(pool:&Vec<u8>,start:usize,len:usize){
+    println!("\n\n==================\n\n");
+    for i in start..start+len{
+        print!(" {:?}",pool[i]);
+    }
+    println!("\n\n==================\n\n");
+}
+
+#[allow(dead_code)]
 pub fn buff_print(pool:&Vec<u8>){
     let mut index = 0;
     println!("\n=====================\n");
