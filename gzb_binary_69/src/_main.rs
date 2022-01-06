@@ -53,7 +53,8 @@ fn main() {
     }
 
     //add for fill space test
-    if false {
+    if true {
+        for _ in 0..3{collect.push(0);}
         collect.append(&mut parser::writer::init(
             (1 as u64).to_be_bytes().to_vec(),
             String::from("value").as_bytes().to_vec(),
@@ -63,13 +64,13 @@ fn main() {
             (2 as u64).to_be_bytes().to_vec(),
             String::from("value").as_bytes().to_vec(),
         ).unwrap());
-        for _ in 0..100{collect.push(0);}
+        // for _ in 0..100{collect.push(0);}
         println!("bytes alloted : {:?}",time_start.elapsed().as_millis());
     }
 
     let mut last_key_filled:u64 = 1;
 
-    if true{
+    if false{
 
         // collect.append(&mut parser::writer::init(
         //     (30032 as u64).to_be_bytes().to_vec(),
@@ -112,7 +113,7 @@ fn main() {
     }
 
     //add for line quantity test
-    if true {
+    if false {
         // let mut index:u64 = 1;
         for _ in 0..500_000{
             let mut build = parser::writer::init(
@@ -124,15 +125,15 @@ fn main() {
             last_key_filled += 1;
         }
         // collect.append(&mut vec![0,0,0,0]);
-        println!("lines alloted : {:?} {:?} {:?}ms",last_key_filled,collect.len(),time_start.elapsed().as_millis());
+        println!("lines alloted : {:?} {:?} {:?}ms",last_key_filled,collect.len(),time_start.elapsed());
     }
 
     //add for empty space test
-    if false {
-        for _ in 0..10_000{
+    if true {
+        for _ in 0..0_500_000_010{
             collect.push(0);
         }
-        println!("bytes alloted : {:?} {:?}",collect.len(),time_start.elapsed().as_millis());
+        println!("bytes alloted : {:?} {:?}",collect.len(),time_start.elapsed());
     }
 
     //-------------------------
@@ -217,8 +218,11 @@ fn main() {
             break;
         }
         let mut part = pool.remove(0);
+        // println!("part : {:?}",part);
         r.map(&mut part);
     }
+    // r.map(&mut vec![0,0,0,0,0]);
+    // r.map(&mut vec![0,0,0]);
     if true{
         match &r.end(){
             Ok(_)=>{
@@ -279,7 +283,7 @@ fn main() {
     }
 
     if true{
-        // println!("{:?}",r.empty_map);
+        println!("{:?}",r.empty_map);
         // println!("{:?}",r.empty_end);
         // println!("{:?}",r.empty_start);
         println!("{:?}",r.pointers.len());

@@ -91,6 +91,7 @@ pub enum ReaderFunc{
 
 #[derive(Debug)]
 pub struct Reader{
+    pub empty_counter:u64,
     pub no_flag_in_buffer:bool,
     pub empty_map:HashMap<usize,(usize,(usize,usize))>,//<empty_index,(len,(start,end))>
     pub empty_start:HashMap<usize,usize>,//<start,empty_index>
@@ -125,6 +126,7 @@ impl Reader{
     }
     pub fn new()->Reader{
         Reader{
+            empty_counter:0,
             no_flag_in_buffer:false,
             pointers:HashMap::new(),
             empty_map:HashMap::new(),//<empty_index,(len,(start,end))>
@@ -577,10 +579,6 @@ fn read(reader:&mut Reader,buffer:&mut Vec<u8>)->Result<Pointer,&'static str>{
 
     if buffer.len() > 0{
         reader.buffer.append(buffer);
-    }
-
-    if !reader.flag.0{
-        unhandled::empty_counter(reader);
     }
         
     //find flag
