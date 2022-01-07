@@ -45,7 +45,7 @@ pub fn u64_to_bytes(n:u64)->Result<Vec<u8>,()>{
     }
 }
 
-#[derive(Clone,Debug,Copy)]
+#[derive(Clone,Debug,Copy,Default)]
 pub struct Pointer{
     pub item_index:u64,
     pub map_index:u8
