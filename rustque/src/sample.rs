@@ -1,11 +1,6 @@
-# rustque
 
-this is a fast and optimized tokio based persistant que for rust it writes Vec<u8> to a file on a disk, supported functions are add,get and remove, it keeps a data map in memory so large data sets should be supported with appropriarte memory.
-   
-## sample code  
 
-```rust 
-
+//api
 use rustque::{Que,Config};
 
 #[tokio::main]
@@ -138,19 +133,8 @@ async fn main(){
 
 }
 
-```
 
-## Bechmarking
-
-Bechmarking is a feature that needs to be enabled in cargo.toml this features provides tools to bechmark best settings for your hardware you need to provide multiple settings to test from and results will be written on the file you specify.
-
-```rust
-[dependencies]
-//enable bechmark feature in cargo.toml
-rustque = {version="1.0.4", features=["benchmark"]}
-```
-
-```rust
+//benchmark
 use rustque::bechmark::{BenchmarkBuilder,Benchmark};
 
 #[tokio::main]
@@ -186,7 +170,3 @@ async fn main(){
     build.run().await;
 
 }
-```
-
-
-

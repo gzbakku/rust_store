@@ -1,5 +1,5 @@
 
-use tokio::fs::{File,OpenOptions,remove_file};
+use tokio::fs::{File,OpenOptions};
 use std::path::Path;
 use tokio::io::{AsyncWriteExt,AsyncReadExt,AsyncSeekExt};
 use std::fs::Metadata;
@@ -34,11 +34,31 @@ pub async fn init_map(path:String,min_que_size:u64)->Result<(File,Metadata),&'st
             }
         }
 
-        match expand(&mut file, &min_que_size).await{
-            Ok(_)=>{},
-            Err(_e)=>{
-                println!("!!! failed-expand-new_map : {:?}",_e);
-                return Err("failed-expand-new_map");
+        let mut collect:Vec<u8> = Vec::with_capacity(10000);
+        for _ in 0..min_que_size{
+            if collect.len() == 10000{
+                // debug_message("filled",DEBUG);
+                match file.write_all(&collect).await{
+                    Ok(_)=>{
+                        // debug_message("writen",DEBUG);
+                    },
+                    Err(_)=>{
+                        // debug_error("failed-write_block-expand_file-init_map-io.rs",ERROR);
+                        return Err("failed-build_frame-create_file");
+                    }
+                }
+                collect.clear();
+            } else {
+                collect.push(0);
+            }
+        }
+        if collect.len() > 0{
+            match file.write_all(&collect).await{
+                Ok(_)=>{},
+                Err(_)=>{
+                    // debug_error("failed-expand_file-last-init_map-io.rs",ERROR);
+                    return Err("failed-build_frame-create_file");
+                }
             }
         }
 
@@ -56,10 +76,21 @@ pub async fn init_map(path:String,min_que_size:u64)->Result<(File,Metadata),&'st
 
     //map already exists check if map size is less then min que size
 
+    // let mut file:File;
+    // match File::open(build).await{
+    //     Ok(v)=>{
+    //         file = v; 
+    //     },
+    //     Err(_)=>{
+    //         // debug_error("failed-open_file-init_map-io.rs",ERROR);
+    //         return Err("failed-open_file");
+    //     }
+    // }
+
     let mut file:File;
     match OpenOptions::new()
     .write(true)
-    .read(true)
+    // .read(true)
     // .create(true)
     .open(build)
     .await
@@ -85,39 +116,26 @@ pub async fn init_map(path:String,min_que_size:u64)->Result<(File,Metadata),&'st
         }
     }
 
-    // println!("min_que_size : {:?}",min_que_size);
-
     let file_size = metadata.len();
     if file_size < min_que_size{
-        match expand(&mut file, &(min_que_size - file_size)).await{
+        match expand_new(&mut file, &(min_que_size - file_size)).await{
             Ok(_)=>{
-                // return Ok((file,metadata));
+                return Ok((file,metadata));
             },
             Err(_e)=>{
-                // println!("!!! failed-expand-existing_map : {:?}",_e);
+                println!("!!! failed-expand-existing_map : {:?}",_e);
                 return Err("failed-expand-existing_map");
             }
         }
     }
 
-    match file.metadata().await{
-        Ok(metadata)=>{
-            // return Ok((file,v));
-            return Ok((file,metadata));
-        },
-        Err(_)=>{
-            // debug_error("failed-existing-get_metadata-init_map-io.rs",ERROR);
-            return Err("failed-get-metadata");
-        }
-    }
+    return Ok((file,metadata));
 
-    // return Ok((file,metadata));
+    // return Err("no_error");
 
 }
 
-pub async fn expand(file:&mut File,size_og:&u64)->Result<(),&'static str>{
-
-    // println!("expanding");
+async fn expand_new(file:&mut File,size_og:&u64)->Result<(),&'static str>{
 
     match file.seek(SeekFrom::End(0)).await{
         Ok(_)=>{},
@@ -128,42 +146,34 @@ pub async fn expand(file:&mut File,size_og:&u64)->Result<(),&'static str>{
 
     let mut size = size_og.clone();
 
-    // println!("size : {:?}",size);
-
     let min_expansion_mb:u64;
     if size > (MB_1 * 100){
-        min_expansion_mb = 100 * MB_1;//println!("100");
+        min_expansion_mb = 100;
     } else if size > (MB_1 * 50){
-        min_expansion_mb = 50 * MB_1;//println!("50");
+        min_expansion_mb = 50;
     } else if size > (MB_1 * 25){
-        min_expansion_mb = 25 * MB_1;//println!("25");
+        min_expansion_mb = 25;
     } else if size > (MB_1 * 20){
-        min_expansion_mb = 20 * MB_1;//println!("20");
+        min_expansion_mb = 20;
     } else if size > (MB_1 * 15){
-        min_expansion_mb = 15 * MB_1;//println!("15");
+        min_expansion_mb = 15;
     } else if size > (MB_1 * 10){
-        min_expansion_mb = 10 * MB_1;//println!("10");
+        min_expansion_mb = 10;
     } else if size > (MB_1 * 5){
-        min_expansion_mb = 5 * MB_1;//println!("5");
+        min_expansion_mb = 5;
     } else {
-        min_expansion_mb = 0;//println!("0");
+        min_expansion_mb = 0;
     }
-
-    // println!("min_expansion_mb : {:?}",min_expansion_mb);
     
     if min_expansion_mb > 0{
-        // println!("building min_expansion_mb");
         let mut build = vec![];
-        for _ in 0..min_expansion_mb{
+        for _ in 0..min_expansion_mb.clone(){
             build.push(0);
         }
-        // println!("built min_expansion_mb : {:?}",build.len());
         loop{
             if size < min_expansion_mb{break;}
-            // println!("expanding min_expansion_mb");
-            match file.write_all(&build).await{
-                Ok(_v)=>{
-                    // println!("expanded min_expansion_mb : {:?}",_v);
+            match file.write(&build).await{
+                Ok(_)=>{
                     size -= min_expansion_mb;
                 },
                 Err(_)=>{
@@ -173,16 +183,12 @@ pub async fn expand(file:&mut File,size_og:&u64)->Result<(),&'static str>{
         }
     }
 
-    // println!("building end");
     let mut build = vec![];
     for _ in 0..size.clone(){
         build.push(0);
     }
-    // println!("built end : {:?}",build.len());
-    // println!("expanding end");
-    match file.write_all(&build).await{
+    match file.write(&build).await{
         Ok(_)=>{
-            // println!("expanded end");
             return Ok(());
         },
         Err(_)=>{
@@ -191,6 +197,47 @@ pub async fn expand(file:&mut File,size_og:&u64)->Result<(),&'static str>{
     }
 
     // return Err("no_error");
+
+}
+
+pub async fn expand(file:&mut File,size:&u64)->Result<(),&'static str>{
+
+    // let hold = Instant::now();
+    match file.seek(SeekFrom::End(0)).await{
+        Ok(_)=>{},
+        Err(_)=>{
+            // debug_error("failed-file_seek-expand-io.rs",ERROR);
+            return Err("failed-seek");
+        }
+    }
+
+    let mut collect:Vec<u8> = Vec::with_capacity(1000000);
+    for _ in 0..*size{
+        if collect.len() == 1000000{
+            match file.write(&collect).await{
+                Ok(_)=>{},
+                Err(_)=>{
+                    // debug_error("failed-write_block-expand-io.rs",ERROR);
+                    return Err("failed-build_frame-create_file");
+                }
+            }
+            collect.clear();
+        } else {
+            collect.push(0);
+        }
+    }
+    if collect.len() > 0{
+        match file.write(&collect).await{
+            Ok(_)=>{},
+            Err(_)=>{
+                // debug_error("failed-write_block-last-expand-io.rs",ERROR);
+            }
+        }
+    }
+
+    // println!("expand in : {:?}",hold.elapsed());
+
+    return Ok(());
 
 }
 
@@ -303,74 +350,3 @@ pub async fn read_full(path:String){
     }
 
 }
-
-#[allow(dead_code)]
-pub async fn delete_file(path:&String){
-    match remove_file(path).await{
-        Ok(_)=>{},
-        Err(_e)=>{
-            // println!("!!! failed-delete-file : {:?} => {:?}",&path,_e);
-        }
-    }
-}
-
-#[allow(dead_code)]
-pub async fn write_new_file(path:&String,buffer:Vec<u8>)->Result<(),&'static str>{
-
-    let mut file:File;
-    match File::create(path).await{
-        Ok(f)=>{file = f;},
-        Err(_)=>{return Err("failed-open_file");}
-    }
-    
-    match file.write(&buffer).await{
-        Ok(_)=>{
-            return Ok(());
-        },
-        Err(_)=>{
-            return Err("failed-read_chunk");
-        }
-    }
-
-}
-
-// pub async fn expand_old(file:&mut File,size:&u64)->Result<(),&'static str>{
-
-//     // let hold = Instant::now();
-//     match file.seek(SeekFrom::End(0)).await{
-//         Ok(_)=>{},
-//         Err(_)=>{
-//             // debug_error("failed-file_seek-expand-io.rs",ERROR);
-//             return Err("failed-seek");
-//         }
-//     }
-
-//     let mut collect:Vec<u8> = Vec::with_capacity(1000000);
-//     for _ in 0..*size{
-//         if collect.len() == 1000000{
-//             match file.write(&collect).await{
-//                 Ok(_)=>{},
-//                 Err(_)=>{
-//                     // debug_error("failed-write_block-expand-io.rs",ERROR);
-//                     return Err("failed-build_frame-create_file");
-//                 }
-//             }
-//             collect.clear();
-//         } else {
-//             collect.push(0);
-//         }
-//     }
-//     if collect.len() > 0{
-//         match file.write(&collect).await{
-//             Ok(_)=>{},
-//             Err(_)=>{
-//                 // debug_error("failed-write_block-last-expand-io.rs",ERROR);
-//             }
-//         }
-//     }
-
-//     // println!("expand in : {:?}",hold.elapsed());
-
-//     return Ok(());
-
-// }

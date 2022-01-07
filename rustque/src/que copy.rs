@@ -1,21 +1,34 @@
 use crate::io;
 use crate::Config;
-use crate::map::init as MapSpawnInit;
-use crate::disk::init as DiskSpawnInit;
+// use crate::map::init as MapSpawnInit;
+// use crate::disk::init as DiskSpawnInit;
 use std::fs::Metadata;
 use gzb_binary_69::{Reader};
 use tokio::fs::File;
 use tokio::spawn as TokioSpawn;
 use flume::Sender as FlumeSender;
+// use flume::Receiver as FlumeReceiver;
 use crate::workers::{u64_from_bytes};
-use crate::workers::Signal;
-use tokio::sync::Notify;
+use crate::workers::{Signal,Pointer};
+// use tokio::sync::{Notify,Mutex};
 use std::sync::Arc;
-use crate::config::{MapConfig,MapMessage,DiskConfig,MapAddMessage};
+use crate::config::{
+    MapConfig,MapMessage,
+    // MapAddMessage,MapGetMessage,MapRemoveMessage,
+    LocatorMessage,LocatorNext,LocatorAdd,LocatorRemove,LocatorReset
+    // DiskConfig,
+};
+use flume::unbounded;
+use std::collections::HashMap;
+
+use futures::future::join_all;
+use crate::response::QueResponse;
+
+// use tokio::runtime::Builder as TokioRuntimeBuilder;
 
 #[derive(Debug,Clone)]
 pub struct Que{
-    sender:FlumeSender<MapMessage>
+    locator_sender:Arc<FlumeSender<LocatorMessage>>
 }
 
 const MB1:u64 = 10_000;
@@ -23,110 +36,191 @@ const MB1:u64 = 10_000;
 impl Que{
     pub async fn new(c:Config)->Result<Que,&'static str>{
 
-        //ensure file 
-        let metadata:Metadata;
-        let mut file:File;
-        match io::init_map(c.path.clone(),c.frame).await{
-            Ok(v)=>{
-                file = v.0;
-                metadata = v.1;
-            },
-            Err(_)=>{
-                //debug_error("failed-init-map-que.rs",ERROR);
-                return Err("failed-init-map");
+        // println!("que config : {:?}",c);
+
+        let (locator_sender,locator_receiver) = unbounded();
+        let mut locator:HashMap<u64,u8> = HashMap::new();
+        let mut all_items = Vec::new();
+
+        let mut map_index:u8 = 0;
+        let mut collect_map_initiaters = Vec::new();
+        for path in c.files.iter(){
+            map_index += 1;
+            collect_map_initiaters.push(init_map(
+                map_index,
+                path.clone(),
+                locator_sender.clone(),
+                c.num_of_writers.clone(),
+                c.min_que_size.clone(),
+                c.expand_size.clone()
+            ));
+        }
+
+        let mut map_senders = HashMap::new();
+        for result in join_all(collect_map_initiaters).await{
+            match result{
+                Ok((index,mut items,map_sender))=>{
+                    for item in items.iter(){
+                        locator.insert(item.clone(),index);
+                    }
+                    all_items.append(&mut items);
+                    map_senders.insert(index,map_sender);
+                },
+                Err(_e)=>{
+                    return Err(_e);
+                }
             }
         }
 
-        let reader:Reader;
-        let que_items:Vec<u64>;
-        match build_map(metadata,&mut file).await{
-            Ok(r)=>{
-                reader = r.0;
-                que_items = r.1;
-            },
-            Err(_)=>{
-                //debug_error("failed-build-map-que.rs",ERROR);
-                return Err("failed-build-map");
-            }
-        }
-
-        //disk config
-        let (disk_config,disk_sender) = DiskConfig::new(c.path,c.frame.clone());
-        for _ in 0..c.disk_writers{
-            let hold_config = disk_config.clone();
-            TokioSpawn(async move {
-                DiskSpawnInit(hold_config).await
-            });
-        }
-
-        //build mpsc channel for que->map
-        let (map_config,map_sender) = MapConfig::new(reader,disk_sender,que_items,c.frame.clone());
-        TokioSpawn(async move {
-            MapSpawnInit(map_config).await
+        all_items.sort();
+        // println!("{:?}",all_items.len());
+        TokioSpawn(async move{
+            crate::locator::init(
+                &mut map_senders,
+                &mut all_items,
+                &mut locator,
+                locator_receiver,
+                map_index
+            ).await;
         });
 
-        //build que
         return Ok(Que{
-            sender:map_sender
+            locator_sender:Arc::new(locator_sender)
         });
 
     }
-    pub async fn add(&mut self,value:Vec<u8>)->Result<(),()>{
+    pub async fn add(&mut self,value:Vec<u8>)->Result<QueResponse,()>{
 
-        let signal = Signal::new();
-        // let debugger = Debugger::new();
-        let waker = Arc::new(Notify::new());
-        let sleeper = waker.clone();
-
-        //debug_message("\nadding",DEBUG);
-
-        //Debugger::update(&debugger, "adding").await;
-
-        match self.sender.send_async(
-            MapMessage::Add(MapAddMessage{
-                // debugger:debugger.clone(),
+        let (signal,sleeper) = Signal::new();
+        match self.locator_sender.send_async(
+            LocatorMessage::Add(LocatorAdd{
                 value:value,
                 signal:signal.clone(),
-                notify:waker
-            }) /*(value,signal.clone(),waker))*/
+            })
         ).await{
             Ok(_)=>{
-                //Debugger::update(&debugger, "map add message sent").await;
-                //debug_message("map add message sent",DEBUG);
+                return Ok(QueResponse::new(signal,sleeper));
             },
             Err(_)=>{
-                //debug_error("failed-send_add_message-que.rs",ERROR);
                 return Err(());
             }
-        }
-
-        // sleeper.notified().await;
-
-        //debug_message("listening for notification",DEBUG);
-        //Debugger::update(&debugger, "listening for notification").await;
-
-        sleeper.notified().await;
-
-        //debug_message("noti received",DEBUG);
-        //Debugger::update(&debugger, "noti received").await;
-
-        if Signal::check(signal).await{
-            return Ok(());
-        } else {
-            return Err(());
         }
 
     }
-    pub async fn add_unchecked(&mut self,value:Vec<u8>)->Result<(),()>{
-        match self.sender.send_async(MapMessage::AddUn(value)).await{
+    pub async fn next(&mut self)->Result<QueResponse,()>{
+
+        let (signal,sleeper) = Signal::new();
+        match self.locator_sender.send_async(
+            LocatorMessage::Next(LocatorNext{
+                signal:signal.clone(),
+            })
+        ).await{
             Ok(_)=>{
-                return Ok(());
+                return Ok(QueResponse::new(signal,sleeper));
             },
             Err(_)=>{
                 return Err(());
             }
         }
-    }//add unchecked
+
+    }
+    pub async fn remove(&mut self,pointer:Pointer)->Result<QueResponse,()>{
+
+        let (signal,sleeper) = Signal::new();
+        match self.locator_sender.send_async(
+            LocatorMessage::Remove(LocatorRemove{
+                pointer:pointer,
+                signal:signal.clone(),
+            })
+        ).await{
+            Ok(_)=>{
+                return Ok(QueResponse::new(signal,sleeper));
+            },
+            Err(_)=>{
+                return Err(());
+            }
+        }
+
+    }
+    pub async fn reset(&mut self,pointer:Pointer)->Result<QueResponse,()>{
+
+        let (signal,sleeper) = Signal::new();
+        match self.locator_sender.send_async(
+            LocatorMessage::Reset(LocatorReset{
+                pointer:pointer,
+                signal:signal.clone(),
+            })
+        ).await{
+            Ok(_)=>{
+                return Ok(QueResponse::new(signal,sleeper));
+            },
+            Err(_)=>{
+                return Err(());
+            }
+        }
+
+    }
+}
+
+async fn init_map(
+    index:u8,
+    path:String,
+    locator_sender:FlumeSender<LocatorMessage>,
+    num_of_writers:u8,
+    min_que_size:u64,
+    expand_size:u64
+)->Result<(u8,Vec<u64>,FlumeSender<MapMessage>),&'static str>{
+
+    //ensure file 
+    let metadata:Metadata;
+    let mut file:File;
+    match io::init_map(path.clone(),min_que_size).await{
+        Ok(v)=>{
+            file = v.0;
+            metadata = v.1;
+        },
+        Err(_e)=>{
+            //debug_error("failed-init-map-que.rs",ERROR);
+            println!("!!! failed-init-map-que : {:?}",_e);
+            return Err("failed-init-map");
+        }
+    }
+
+    let reader:Reader;
+    let items:Vec<u64>;
+    match build_map(metadata,&mut file).await{
+        Ok(r)=>{
+            reader = r.0;
+            items = r.1;
+            // return Ok((index,r.0,r.1));
+        },
+        Err(_e)=>{
+            //debug_error("failed-build-map-que.rs",ERROR);
+            println!("!!! failed-build-map : {:?}",_e);
+            return Err("failed-build-map");
+        }
+    }
+
+    // println!("{:?}",reader.corrupt);
+
+    let (build_map_config,map_sender) = MapConfig::new(
+        index.clone(),
+        path,
+        reader,
+        locator_sender,
+        num_of_writers,
+        min_que_size,
+        expand_size
+    );
+
+    TokioSpawn(async move{
+        crate::map::init(build_map_config).await;
+    });
+
+    // return Err("no_error");
+
+    return Ok((index,items,map_sender));
+
 }
 
 async fn build_map(metadata:Metadata,file:&mut File)->Result<(Reader,Vec<u64>),&'static str>{

@@ -1,7 +1,8 @@
 use std::io::{Cursor};
 use byteorder::{BigEndian, WriteBytesExt,ReadBytesExt};
 use std::sync::Arc;
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex,Notify};
+
 
 #[allow(dead_code)]
 pub fn debug_error(e:&'static str,c:bool){
@@ -13,7 +14,7 @@ pub fn debug_error(e:&'static str,c:bool){
 #[allow(dead_code)]
 pub fn debug_message(e:&'static str,c:bool){
     if c{
-        println!("!!! {}",e);
+        println!(">>> {}",e);
     }
 }
 
@@ -44,58 +45,65 @@ pub fn u64_to_bytes(n:u64)->Result<Vec<u8>,()>{
     }
 }
 
+#[derive(Clone,Debug,Copy)]
+pub struct Pointer{
+    pub item_index:u64,
+    pub map_index:u8
+}
 
+#[derive(Clone,Debug)]
+pub enum SignalData{
+    None,Value((Vec<u8>,Pointer))
+}
 
-// #[derive()]
+#[derive(Clone,Debug)]
 pub struct Signal{
-    result:bool
+    pub result:bool,
+    pub waker:Arc<Notify>,
+    pub data:SignalData
 }
 
 impl Signal{
-    pub fn new()->Arc<Mutex<Signal>>{
-        Arc::new(
-            Mutex::new(
-                Signal{
-                    result:false 
-                }
-            )
+    pub fn new()->(Arc<Mutex<Signal>>,Arc<Notify>){
+        let sleeper = Arc::new(Notify::new());
+        (
+            Arc::new(
+                Mutex::new(
+                    Signal{
+                        result:false,
+                        waker:sleeper.clone(),
+                        data:SignalData::None
+                    }
+                )
+            ),
+            sleeper
         )
     }
     pub async fn ok(hold:Arc<Mutex<Signal>>){
         let mut lock = hold.lock().await;
         lock.result = true;
+        lock.waker.notify_one();
     }
-    pub async fn check(hold:Arc<Mutex<Signal>>)->bool{
+    pub async fn data(hold:Arc<Mutex<Signal>>,data:SignalData){
+        let mut lock = hold.lock().await;
+        lock.result = true;
+        lock.data = data;
+        lock.waker.notify_one();
+    }
+    pub async fn error(hold:Arc<Mutex<Signal>>){
+        let lock = hold.lock().await;
+        lock.waker.notify_one();
+    }
+    pub async fn check(hold:&Arc<Mutex<Signal>>)->bool{
         let lock = hold.lock().await;
         return lock.result;
     }
-}
-
-pub struct SignalData{
-    pub result:bool,
-    pub data:Vec<u8>,
-    pub index:u64
-}
-
-impl SignalData{
-    pub fn new()->Arc<Mutex<SignalData>>{
-        Arc::new(
-            Mutex::new(
-                SignalData{
-                    result:false,
-                    data:Vec::new(),
-                    index:0
-                }
-            )
-        )
-    }
-    pub async fn ok(hold:Arc<Mutex<SignalData>>,data:Vec<u8>,index:u64){
-        let mut lock = hold.lock().await;
-        lock.data = data;
-        lock.result = true;
-        lock.index = index;
+    pub async fn get(hold:Arc<Mutex<Signal>>)->SignalData{
+        let lock = hold.lock().await;
+        return lock.data.clone();
     }
 }
+
 
 // #[derive(Debug)]
 // pub struct Debugger{
