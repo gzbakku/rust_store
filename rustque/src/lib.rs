@@ -200,3 +200,4 @@ pub mod benchmark;
 pub use config::Config;
 pub use que::Que;
 pub use workers::Pointer;
+pub use response::QueResponse;
