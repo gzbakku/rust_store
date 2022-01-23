@@ -20,7 +20,6 @@ pub enum PointerType{
 #[derive(Debug,Clone)]
 pub struct Pointer{
     pub pointer_type:PointerType,
-    pub start_on_map_cursor:usize,
     pub boundry:((usize,usize),(usize,usize)),//(map(start,end),buffer(start,end))
     pub key:((usize,usize),(usize,usize),Vec<u8>),//(map(start,end),buffer(start,end))
     pub value:((usize,usize),(usize,usize))//(map(start,end),buffer(start,end))
@@ -30,7 +29,6 @@ impl Pointer{
     pub fn new()->Pointer{
         Pointer{
             pointer_type:PointerType::Corrupt,
-            start_on_map_cursor:0,
             boundry:((0,0),(0,0)),
             key:((0,0),(0,0),vec![]),
             value:((0,0),(0,0))
@@ -43,7 +41,6 @@ impl Pointer{
     }
     pub fn point(len:usize,map_cursor:usize,buffer_cursor:usize,pt:PointerType)->Pointer{
         let mut hold = Pointer::new();
-        hold.start_on_map_cursor = map_cursor;
         hold.boundry.0.0 = map_cursor;
         hold.boundry.0.1 = map_cursor+len-1;
         hold.boundry.1.0 = buffer_cursor;
@@ -52,19 +49,18 @@ impl Pointer{
         return hold;
     }
     pub fn data(
-        len:usize,
         map_cursor:usize,
         start:usize,end:usize,
         key_start:usize,key_end:usize,key:Vec<u8>,
         value_start:usize,value_end:usize
     )->Pointer{
+
         let mut hold = Pointer::new();
         //pointer
         hold.pointer_type = PointerType::Data;
-        hold.start_on_map_cursor = map_cursor;
         //boundry
-        hold.boundry.0.0 = map_cursor;
-        hold.boundry.0.1 = map_cursor+len-1;
+        hold.boundry.0.0 = start + map_cursor;
+        hold.boundry.0.1 = end + map_cursor;
         hold.boundry.1.0 = start;
         hold.boundry.1.1 = end;
         //key
@@ -77,10 +73,14 @@ impl Pointer{
         //value
         let value_len = value_end - value_start;
         hold.value.0.0 = map_cursor + value_start;
-        hold.value.0.1 = map_cursor + value_start + value_len - 1;
+        hold.value.0.1 = map_cursor + value_start + value_len;
         hold.value.1.0 = value_start;
         hold.value.1.1 = value_end;
+
+        // println!("");
+
         return hold;
+
     }
 }
 
@@ -89,8 +89,23 @@ pub enum ReaderFunc{
     Flag,Key,Value
 }
 
+// #[derive(Debug,Default)]
+// pub struct Calc{
+//     pub total_empty:u128,
+//     pub count_time:u128,
+//     pub empty_end_pointers_time:u128,
+//     pub update_reader_time:u128,
+//     pub empty_countinues_time:u128,
+//     pub previous_empty_found_time:u128,
+//     pub previous_empty_not_found_time:u128,   
+//     pub total_empty_time:u128,
+//     pub unhandled_empty_time:u128,
+// }
+
 #[derive(Debug)]
 pub struct Reader{
+    // pub anchor_time:Instant,
+    // pub calc:Calc,
     pub no_flag_in_buffer:bool,
     pub empty_map:HashMap<usize,(usize,(usize,usize))>,//<empty_index,(len,(start,end))>
     pub empty_start:HashMap<usize,usize>,//<start,empty_index>
@@ -125,6 +140,8 @@ impl Reader{
     }
     pub fn new()->Reader{
         Reader{
+            // anchor_time:Instant::now(),
+            // calc:Calc::default(),
             no_flag_in_buffer:false,
             pointers:HashMap::new(),
             empty_map:HashMap::new(),//<empty_index,(len,(start,end))>
@@ -149,6 +166,8 @@ impl Reader{
     }
     pub fn with_capacity(map_capacity:usize,buffer_capacity:usize)->Reader{
         Reader{
+            // anchor_time:Instant::now(),
+            // calc:Calc::default(),
             no_flag_in_buffer:false,
             pointers:HashMap::with_capacity(map_capacity),
             empty_map:HashMap::new(),//<empty_index,(len,(start,end))>
@@ -360,49 +379,27 @@ impl Reader{
     }
     pub fn map(&mut self,buffer:&mut Vec<u8>){
 
-        // println!("mapping len : {:?}",buffer.len());
-
         loop{
 
-            // if self.buffer.len() == 0{
-            //     break;
-            // }
-
-            // let pointer_time = Instant::now();
             match read(self,buffer){
                 Ok(v)=>{
 
-                    // println!("pointer_time : {:?}",pointer_time.elapsed());
-
-                    // println!("pointer found");
-
-                    // println!("{:?}",buffer.len());
-
-                    //extract pointer from buffer
-                    let pointer_len = v.boundry.0.1-v.boundry.0.0+1;
-                    let new_buffer = self.buffer.split_off(v.boundry.1.1+1);
-                    let old_buffer = &self.buffer;
-                    self.buffer_cursor = 0;
-                    self.map_cursor += pointer_len;
-
                     //collect values
                     if self.find_values && !self.get_values_controll{
-                        // println!("find values");
                         for i in self.to_find.iter(){
                             if i == &v.key.2{
                                 let mut collect_value:Vec<u8> = vec![];
-                                for i in v.value.1.0..v.value.1.1{
-                                    collect_value.push(old_buffer[i]);
+                                for i in v.value.1.0..=v.value.1.1{
+                                    collect_value.push(self.buffer[i]);
                                 }
                                 self.values.push((v.key.2.clone(),collect_value));
                             }
                         }
                     } else
                     if self.get_values_controll{
-                        // println!("get values");
                         let mut collect_value:Vec<u8> = vec![];
-                        for i in v.value.1.0..v.value.1.1{
-                            collect_value.push(old_buffer[i]);
+                        for i in v.value.1.0..=v.value.1.1{
+                            collect_value.push(self.buffer[i]);
                         }
                         self.values.push((v.key.2.clone(),collect_value));
                     }
@@ -420,16 +417,7 @@ impl Reader{
                         }
                     }
 
-                    // println!("old buffer : {:?}",old_buffer.len());
-
-                    
-
-                    //place new buffer
-                    self.buffer = new_buffer;
-
-                    // println!("pointer_finish : {:?}",pointer_time.elapsed());
-
-                    
+                    if self.dump(){self.buffer_cursor += 1;} else {break;}
 
                 },
                 Err(_e)=>{
@@ -437,8 +425,6 @@ impl Reader{
                 }
             }
         }
-
-        // return Ok(());
 
     }
     pub fn end(&mut self)->Result<(),&'static str>{
@@ -452,20 +438,13 @@ impl Reader{
             match read(self,&mut vec![]){
                 Ok(v)=>{
 
-                    //extract pointer from buffer
-                    let pointer_len = v.boundry.0.1-v.boundry.0.0+1;
-                    let new_buffer = self.buffer.split_off(v.boundry.1.1+1);
-                    let old_buffer = &self.buffer;
-                    self.buffer_cursor = 0;
-                    self.map_cursor += pointer_len;
-
                     //collect values
                     if self.find_values && !self.get_values_controll{
                         for i in self.to_find.iter(){
                             if i == &v.key.2{
                                 let mut collect_value:Vec<u8> = vec![];
-                                for i in v.value.1.0..v.value.1.1{
-                                    collect_value.push(old_buffer[i]);
+                                for i in v.value.1.0..=v.value.1.1{
+                                    collect_value.push(self.buffer[i]);
                                 }
                                 self.values.push((v.key.2.clone(),collect_value));
                             }
@@ -473,8 +452,8 @@ impl Reader{
                     } else
                     if self.get_values_controll{
                         let mut collect_value:Vec<u8> = vec![];
-                        for i in v.value.1.0..v.value.1.1{
-                            collect_value.push(old_buffer[i]);
+                        for i in v.value.1.0..=v.value.1.1{
+                            collect_value.push(self.buffer[i]);
                         }
                         self.values.push((v.key.2.clone(),collect_value));
                     }
@@ -492,8 +471,7 @@ impl Reader{
                         }
                     }
 
-                    //place new buffer
-                    self.buffer = new_buffer;
+                    if self.dump(){self.buffer_cursor += 1;} else {break;}
 
                 },
                 Err(_e)=>{
@@ -503,8 +481,9 @@ impl Reader{
         }
 
         if self.buffer.len() > 0{
-            unhandled::init(self,self.buffer.len());
+            unhandled::init(self,self.buffer_cursor,self.buffer.len()-1);
         }
+        self.buffer.clear();
 
         return Ok(());
 
@@ -530,7 +509,8 @@ impl Reader{
         self.end.2 = 0;
     }
     pub fn flush(&mut self){
-        unhandled::init(self,self.buffer.len());
+        // println!("flushing");
+        unhandled::init(self,self.flag.1,self.flag.2);
         self.reset();
     }
     pub fn expand(&mut self,num_of_bytes:usize)->Result<(),&'static str>{
@@ -571,54 +551,89 @@ impl Reader{
         return Ok(());
 
     }
+    pub fn dump(&mut self)->bool{
+        if self.buffer.len() == 0{
+            self.map_cursor += self.buffer_cursor;
+            // println!("++++++++ map_cursor expanded 0");
+            self.buffer_cursor = 0;
+            return false;
+        }
+        if self.flag.0{return true;}
+        if self.buffer_cursor+1 >= self.buffer.len(){
+            // self.buffer.clear();
+            // self.map_cursor += self.buffer_cursor+1;
+            // println!("++++++++ map_cursor expanded 1");
+            // self.buffer_cursor = 0;
+            return false;
+        }
+        if !self.flag.0{
+            if self.buffer_cursor > 100_000_000{
+                self.buffer = self.buffer.split_off(self.buffer_cursor);
+                self.map_cursor += self.buffer_cursor;
+                // println!("++++++++ map_cursor expanded 2");
+                self.buffer_cursor = 0;
+            }
+        }
+        if self.buffer.len() > 0{
+            return true;
+        } else {
+            return false;
+        }
+    }
+    
 }
 
 fn read(reader:&mut Reader,buffer:&mut Vec<u8>)->Result<Pointer,&'static str>{
-
+    
     if buffer.len() > 0{
         reader.buffer.append(buffer);
     }
 
+    if false{
+        crate::workers::buff_print(&reader.buffer);
+    }
+
     if !reader.flag.0{
+        // reader.calc.total_empty += 1;
+        // let unhandled_empty_time = Instant::now();
         unhandled::empty_counter(reader);
+        // reader.calc.unhandled_empty_time += unhandled_empty_time.elapsed().as_nanos();
+    }
+
+    if !reader.dump(){
+        return Err("no_buffer");
     }
         
     //find flag
     if reader.flag.0 == false {
-        // let start_flag_time = Instant::now();
-        // println!("reader.buffer_cursor : {:?}",reader.buffer_cursor);
+        let base_buffer_cursor = reader.buffer_cursor;
         match vector_in_vector(&reader.buffer,&vec![0,1,0],reader.buffer_cursor){
             Ok(l)=>{
-                // println!("start_flag_time : {:?}",start_flag_time.elapsed());
                 reader.no_flag_in_buffer = false;
-                if l.0 > 0{
-                    // let unhandled_time = Instant::now();
-                    unhandled::init(reader,l.0);
-                    // println!("unhandled_time : {:?}",unhandled_time.elapsed());
+                if l.0 > base_buffer_cursor{
+                    unhandled::init(reader,base_buffer_cursor,l.0-1);
                 }
                 if true {
                     reader.flag.0 = true;
-                    reader.flag.1 = reader.buffer_cursor;
-                    reader.flag.2 = reader.buffer_cursor+2;
-                    reader.buffer_cursor = 3;
+                    reader.flag.1 = l.0;
+                    reader.flag.2 = l.1;
+                    reader.buffer_cursor += 3;
                 }
             },
             Err(_)=>{
-                
-                if reader.buffer.len() > 6{
-                    reader.buffer_cursor = reader.buffer.len() - 5;
-                } else {
-                    reader.buffer_cursor = 0;
-                }
                 return Err("not_found-flag");
             }
         }
     }
 
+    //find key & value
     if true {
+        // let part_process_time = Instant::now();
         if reader.flag.0 == true && reader.key.0 == false{
             match key::init(reader){
-                Ok(_)=>{},
+                Ok(_)=>{
+                    // println!("part_key : {:?}",part_process_time.elapsed());
+                },
                 Err(_)=>{
                     return Err("not_found-key");
                 }
@@ -626,20 +641,25 @@ fn read(reader:&mut Reader,buffer:&mut Vec<u8>)->Result<Pointer,&'static str>{
         }
         if reader.flag.0 == true && reader.key.0 == true && reader.value.0 == false{
             match value::init(reader){
-                Ok(_)=>{},
+                Ok(_)=>{
+                    // println!("part_value : {:?}",part_process_time.elapsed());
+                },
                 Err(_)=>{
                     return Err("not_found-value");
                 }
             }
         }
-        if 
+    }
+
+    //check if a valid pointer is found
+    if true{
+        if
             reader.flag.0 == true && 
             reader.key.0 == true && 
             reader.value.0 == true &&
             reader.end.0 == true
         {
             let build = Pointer::data(
-                reader.end.2-reader.flag.1+1,
                 reader.map_cursor,
                 reader.flag.1,reader.end.2,
                 reader.key.3.0, reader.key.3.1, reader.key.4.split_off(0),
@@ -701,3 +721,53 @@ fn vector_in_vector(v1:&Vec<u8>,v2:&Vec<u8>,start_cursor:usize)->Result<(usize,u
     }
 
 }
+
+// pub fn calc(&mut self){
+
+//     // pub total_empty:u128,
+//     // pub count_time:u128,
+//     // pub empty_end_pointers_time:u128,
+//     // pub update_reader_time:u128,
+//     // pub empty_countinues_time:u128,
+//     // pub previous_empty_found_time:u128,
+//     // pub previous_empty_not_found_time:u128,   
+//     // pub total_empty_time:u128,
+//     // pub unhandled_empty_time:u128,
+
+//     println!("\n===========================================\n");
+
+//     let count_time = (self.calc.count_time as f64) / (self.calc.total_empty as f64) / (1_000_000.0);
+//     let empty_end_pointers_time = (self.calc.empty_end_pointers_time as f64) / (self.calc.total_empty as f64) / (1_000_000.0);
+//     let update_reader_time = (self.calc.update_reader_time as f64) / (self.calc.total_empty as f64) / (1_000_000.0);
+//     let empty_countinues_time = (self.calc.empty_countinues_time as f64) / (self.calc.total_empty as f64) / (1_000_000.0);
+//     let previous_empty_found_time = (self.calc.previous_empty_found_time as f64) / (self.calc.total_empty as f64) / (1_000_000.0);
+//     let previous_empty_not_found_time = (self.calc.previous_empty_not_found_time as f64) / (self.calc.total_empty as f64) / (1_000_000.0);
+//     let total_empty_time = (self.calc.total_empty_time as f64) / (self.calc.total_empty as f64) / (1_000_000.0);
+//     let unhandled_empty_time = (self.calc.unhandled_empty_time as f64) / (self.calc.total_empty as f64) / (1_000_000.0);
+
+//     println!("total_empty : {:?}",self.calc.total_empty);
+//     println!("calc.previous_empty_found_time : {:?}",self.calc.previous_empty_found_time);
+//     println!("count_time : {:?}",count_time);
+//     println!("empty_end_pointers_time : {:?}",empty_end_pointers_time);
+//     println!("update_reader_time : {:?}",update_reader_time);
+//     println!("empty_countinues_time : {:?}",empty_countinues_time);
+//     println!("previous_empty_found_time : {:?}",previous_empty_found_time);
+//     println!("previous_empty_not_found_time : {:?}",previous_empty_not_found_time);
+//     println!("total_empty_time : {:?}",total_empty_time);
+//     println!("unhandled_empty_time : {:?}",unhandled_empty_time);
+
+//     let mut build_bar_line = String::new();
+//     build_bar_line += &format!("{},",crate::workers::concat_str(count_time.to_string()));
+//     build_bar_line += &format!(" {},",crate::workers::concat_str(empty_end_pointers_time.to_string()));
+//     build_bar_line += &format!(" {},",crate::workers::concat_str(update_reader_time.to_string()));
+//     build_bar_line += &format!(" {},",crate::workers::concat_str(empty_countinues_time.to_string()));
+//     build_bar_line += &format!(" {},",crate::workers::concat_str(previous_empty_found_time.to_string()));
+//     build_bar_line += &format!(" {},",crate::workers::concat_str(previous_empty_not_found_time.to_string()));
+//     build_bar_line += &format!(" {},",crate::workers::concat_str(total_empty_time.to_string()));
+//     build_bar_line += &format!(" {}",crate::workers::concat_str(unhandled_empty_time.to_string()));
+
+//     println!("\n{}\n",build_bar_line);
+
+//     println!("\n===========================================\n");
+
+// }

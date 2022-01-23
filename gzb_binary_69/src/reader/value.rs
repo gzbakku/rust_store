@@ -3,12 +3,15 @@
 use crate::reader::{Reader};
 use crate::workers::{u64_from_bytes,p_error};
 
-const ERROR:bool = true;
+const ERROR:bool = false;
 
 pub fn init(reader:&mut Reader)->Result<(),()>{
 
     if reader.value.1 == 0{
-        if reader.buffer.len() < 17+reader.key.1 as usize+reader.key.2 as usize{
+        if 
+            reader.buffer.len() - reader.flag.1 < 
+            17 + reader.key.1 as usize + reader.key.2 as usize
+        {
             // p_error("short-value_len-buff_size-value",ERROR);
             return Err(());
         }
@@ -26,7 +29,10 @@ pub fn init(reader:&mut Reader)->Result<(),()>{
     }
 
     if reader.value.2 == 0{
-        if reader.buffer.len() < 21+reader.key.1 as usize+reader.key.2 as usize + reader.value.1 as usize{
+        if 
+            reader.buffer.len() - reader.flag.1 < 
+            21 + reader.key.1 as usize + reader.key.2 as usize + reader.value.1 as usize
+        {
             // p_error("short-len-value-buff_size-value",ERROR);
             return Err(());
         }
@@ -47,9 +53,13 @@ pub fn init(reader:&mut Reader)->Result<(),()>{
         }
     }
 
+    // 36 - 5 
+
+    // println!("value ");
+
     if reader.value.0 == false{
         if 
-            reader.buffer.len() < 
+            reader.buffer.len() - reader.flag.1 < 
             24+
             reader.key.1 as usize+
             reader.key.2 as usize + 
@@ -80,13 +90,11 @@ pub fn init(reader:&mut Reader)->Result<(),()>{
         }
         reader.value.0 = true;
         reader.value.3.0 = reader.buffer_cursor;
-        reader.value.3.1 = reader.buffer_cursor + reader.value.2 as usize;
+        reader.value.3.1 = reader.buffer_cursor + reader.value.2 as usize - 1;
         reader.end.0 = true;
         reader.end.1 = reader.buffer_cursor+0+reader.value.2 as usize;
         reader.end.2 = reader.buffer_cursor+2+reader.value.2 as usize;
         reader.buffer_cursor += 2 + reader.value.2 as usize;
-        // println!("end found");
-        // println!("{:?}",reader.end);
     }
 
     return Ok(());

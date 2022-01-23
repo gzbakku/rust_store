@@ -1,6 +1,6 @@
 
 use std::collections::HashMap;
-// use std::time::Instant;
+use std::time::Instant;
 
 mod unhandled;
 mod key;
@@ -89,9 +89,23 @@ pub enum ReaderFunc{
     Flag,Key,Value
 }
 
+#[derive(Debug,Default)]
+pub struct Calc{
+    pub total_empty:u128,
+    pub count_time:u128,
+    pub empty_end_pointers_time:u128,
+    pub update_reader_time:u128,
+    pub empty_countinues_time:u128,
+    pub previous_empty_found_time:u128,
+    pub previous_empty_not_found_time:u128,   
+    pub total_empty_time:u128,
+    pub unhandled_empty_time:u128,
+}
+
 #[derive(Debug)]
 pub struct Reader{
-    pub empty_counter:u64,
+    pub anchor_time:Instant,
+    pub calc:Calc,
     pub no_flag_in_buffer:bool,
     pub empty_map:HashMap<usize,(usize,(usize,usize))>,//<empty_index,(len,(start,end))>
     pub empty_start:HashMap<usize,usize>,//<start,empty_index>
@@ -126,7 +140,8 @@ impl Reader{
     }
     pub fn new()->Reader{
         Reader{
-            empty_counter:0,
+            anchor_time:Instant::now(),
+            calc:Calc::default(),
             no_flag_in_buffer:false,
             pointers:HashMap::new(),
             empty_map:HashMap::new(),//<empty_index,(len,(start,end))>
@@ -151,6 +166,8 @@ impl Reader{
     }
     pub fn with_capacity(map_capacity:usize,buffer_capacity:usize)->Reader{
         Reader{
+            anchor_time:Instant::now(),
+            calc:Calc::default(),
             no_flag_in_buffer:false,
             pointers:HashMap::with_capacity(map_capacity),
             empty_map:HashMap::new(),//<empty_index,(len,(start,end))>
@@ -370,6 +387,8 @@ impl Reader{
             //     break;
             // }
 
+            // let unhandled_time = Instant::now();
+
             // let pointer_time = Instant::now();
             match read(self,buffer){
                 Ok(v)=>{
@@ -446,6 +465,7 @@ impl Reader{
     pub fn end(&mut self)->Result<(),&'static str>{
 
         if self.buffer.len() == 0{
+            if true{self.calc();}
             return Ok(());
         }
 
@@ -507,6 +527,8 @@ impl Reader{
         if self.buffer.len() > 0{
             unhandled::init(self,self.buffer.len());
         }
+
+        if true{self.calc();}
 
         return Ok(());
 
@@ -573,12 +595,104 @@ impl Reader{
         return Ok(());
 
     }
+    pub fn calc(&mut self){
+
+        // pub total_empty:u128,
+        // pub count_time:u128,
+        // pub empty_end_pointers_time:u128,
+        // pub update_reader_time:u128,
+        // pub empty_countinues_time:u128,
+        // pub previous_empty_found_time:u128,
+        // pub previous_empty_not_found_time:u128,   
+        // pub total_empty_time:u128,
+        // pub unhandled_empty_time:u128,
+
+        println!("\n===========================================\n");
+
+        let count_time = (self.calc.count_time as f64) / (self.calc.total_empty as f64) / (1_000_000.0);
+        let empty_end_pointers_time = (self.calc.empty_end_pointers_time as f64) / (self.calc.total_empty as f64) / (1_000_000.0);
+        let update_reader_time = (self.calc.update_reader_time as f64) / (self.calc.total_empty as f64) / (1_000_000.0);
+        let empty_countinues_time = (self.calc.empty_countinues_time as f64) / (self.calc.total_empty as f64) / (1_000_000.0);
+        let previous_empty_found_time = (self.calc.previous_empty_found_time as f64) / (self.calc.total_empty as f64) / (1_000_000.0);
+        let previous_empty_not_found_time = (self.calc.previous_empty_not_found_time as f64) / (self.calc.total_empty as f64) / (1_000_000.0);
+        let total_empty_time = (self.calc.total_empty_time as f64) / (self.calc.total_empty as f64) / (1_000_000.0);
+        let unhandled_empty_time = (self.calc.unhandled_empty_time as f64) / (self.calc.total_empty as f64) / (1_000_000.0);
+
+        println!("total_empty : {:?}",self.calc.total_empty);
+        println!("calc.previous_empty_found_time : {:?}",self.calc.previous_empty_found_time);
+        println!("count_time : {:?}",count_time);
+        println!("empty_end_pointers_time : {:?}",empty_end_pointers_time);
+        println!("update_reader_time : {:?}",update_reader_time);
+        println!("empty_countinues_time : {:?}",empty_countinues_time);
+        println!("previous_empty_found_time : {:?}",previous_empty_found_time);
+        println!("previous_empty_not_found_time : {:?}",previous_empty_not_found_time);
+        println!("total_empty_time : {:?}",total_empty_time);
+        println!("unhandled_empty_time : {:?}",unhandled_empty_time);
+
+        let mut build_bar_line = String::new();
+        build_bar_line += &format!("{},",concat_str(count_time.to_string()));
+        build_bar_line += &format!(" {},",concat_str(empty_end_pointers_time.to_string()));
+        build_bar_line += &format!(" {},",concat_str(update_reader_time.to_string()));
+        build_bar_line += &format!(" {},",concat_str(empty_countinues_time.to_string()));
+        build_bar_line += &format!(" {},",concat_str(previous_empty_found_time.to_string()));
+        build_bar_line += &format!(" {},",concat_str(previous_empty_not_found_time.to_string()));
+        build_bar_line += &format!(" {},",concat_str(total_empty_time.to_string()));
+        build_bar_line += &format!(" {}",concat_str(unhandled_empty_time.to_string()));
+
+        println!("\n{}\n",build_bar_line);
+
+        println!("\n===========================================\n");
+
+    }
+}
+
+fn concat_str(v:String)->String{
+    println!("{:?}",v);
+    let mut collect = String::new();
+    for i in v.chars(){
+        if collect.len() == 8{break;}
+        collect.push(i)
+    }
+    return collect;
 }
 
 fn read(reader:&mut Reader,buffer:&mut Vec<u8>)->Result<Pointer,&'static str>{
 
+    // if reader.map_cursor > 11200000-50 && reader.map_cursor < 11200000+50{
+    //     println!("king kong : {:?}",reader.map_cursor);
+    // }
+
     if buffer.len() > 0{
         reader.buffer.append(buffer);
+    }
+
+    // println!("r : {:?}",reader.buffer);
+
+    // let hold_map_cursor = reader.map_cursor.clone();
+    // let hold_buffer_cursor = reader.buffer_cursor.clone();
+
+    if !reader.flag.0{
+        reader.calc.total_empty += 1;
+        let unhandled_empty_time = Instant::now();
+        unhandled::empty_counter(reader);
+        // println!("unhandled_empty_time : {:?}",unhandled_empty_time.elapsed());
+        reader.calc.unhandled_empty_time += unhandled_empty_time.elapsed().as_nanos();
+        // reader.calc.unhandled_empty_time = reader.calc.unhandled_empty_time / reader.calc.total_empty;
+    }
+
+    // pub total_empty:u128,
+    // pub count_time:u128,
+    // pub empty_end_pointers_time:u128,
+    // pub empty_countinues_time:u128,
+    // pub previous_empty_found_time:u128,
+    // pub previous_empty_not_found_time:u128,   
+    // pub total_empty_time:u128,
+    // pub unhandled_empty_time:u128,
+
+    if reader.anchor_time.elapsed().as_secs() > 5 && false{
+        // println!("avg calc : {:#?}",reader.calc);
+        // println!("total_empty : {:?}",(reader.calc.total_empty as f64) / 1_000_000.0);
+        reader.calc();
     }
         
     //find flag
@@ -590,6 +704,7 @@ fn read(reader:&mut Reader,buffer:&mut Vec<u8>)->Result<Pointer,&'static str>{
                 // println!("start_flag_time : {:?}",start_flag_time.elapsed());
                 reader.no_flag_in_buffer = false;
                 if l.0 > 0{
+                    // println!("corrupted found : {:?} {:?}",hold_map_cursor,hold_buffer_cursor);
                     // let unhandled_time = Instant::now();
                     unhandled::init(reader,l.0);
                     // println!("unhandled_time : {:?}",unhandled_time.elapsed());
@@ -614,9 +729,12 @@ fn read(reader:&mut Reader,buffer:&mut Vec<u8>)->Result<Pointer,&'static str>{
     }
 
     if true {
+        // let part_process_time = Instant::now();
         if reader.flag.0 == true && reader.key.0 == false{
             match key::init(reader){
-                Ok(_)=>{},
+                Ok(_)=>{
+                    // println!("part_key : {:?}",part_process_time.elapsed());
+                },
                 Err(_)=>{
                     return Err("not_found-key");
                 }
@@ -624,7 +742,9 @@ fn read(reader:&mut Reader,buffer:&mut Vec<u8>)->Result<Pointer,&'static str>{
         }
         if reader.flag.0 == true && reader.key.0 == true && reader.value.0 == false{
             match value::init(reader){
-                Ok(_)=>{},
+                Ok(_)=>{
+                    // println!("part_value : {:?}",part_process_time.elapsed());
+                },
                 Err(_)=>{
                     return Err("not_found-value");
                 }
@@ -644,6 +764,7 @@ fn read(reader:&mut Reader,buffer:&mut Vec<u8>)->Result<Pointer,&'static str>{
                 reader.value.3.0, reader.value.3.1,
             );
             reader.reset();
+            // println!("part_final : {:?}",part_process_time.elapsed());
             return Ok(build);
         }
     }

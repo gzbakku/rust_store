@@ -4,6 +4,8 @@ use crate::reader::{Reader};
 
 pub fn init(reader:&mut Reader,end_cursor:usize){
 
+    println!("unhandled : {:?}",reader.buffer_cursor);
+
     if reader.buffer.len() == 0{
         return;
     }
@@ -110,16 +112,28 @@ pub fn empty_counter(reader:&mut Reader){
     //count zeros
     let count_time = Instant::now();
     let mut counter:usize = 0;
-    for i in &reader.buffer{
-        if i > &0{
+
+    for i in reader.buffer_cursor..reader.buffer.len(){
+        if reader.buffer[i] > 0{
             // println!("break at : {:?}",i);
             break;
         } else {
             counter += 1;
         }
     }
+
+    // for i in &reader.buffer{
+    //     if i > &0{
+    //         // println!("break at : {:?}",i);
+    //         break;
+    //     } else {
+    //         counter += 1;
+    //     }
+    // }
     // println!("count_time : {:?}",count_time.elapsed());
     reader.calc.count_time += count_time.elapsed().as_nanos();
+
+    // println!("counter : {:?}",counter,);
 
     if counter > 0 {counter -= 1};
 
@@ -136,15 +150,15 @@ pub fn empty_counter(reader:&mut Reader){
 
     //make empty_end_pointers
     let empty_end_pointers_time = Instant::now();
-    let empty_start_at = reader.map_cursor;
+    let empty_start_at = reader.map_cursor + reader.buffer_cursor;
     let empty_end_at = empty_start_at + counter - 1;
-    let empty_len = empty_end_at - empty_start_at;
+    let empty_len = empty_end_at - empty_start_at + 1;
     // println!("empty_end_pointers_time : {:?}",empty_end_pointers_time.elapsed());
     reader.calc.empty_end_pointers_time += empty_end_pointers_time.elapsed().as_nanos();
 
     //update_reader
     let update_reader_time = Instant::now();
-    reader.buffer = reader.buffer.split_off(counter);
+    // reader.buffer = reader.buffer.split_off(counter);
 
     // let new_buffer = reader.buffer.split_off(counter);
     // reader.buffer = new_buffer;
@@ -152,8 +166,9 @@ pub fn empty_counter(reader:&mut Reader){
     //     reader.buffer.remove(0);
     // }
 
-    reader.map_cursor = empty_end_at + 1;
-    reader.buffer_cursor = 0;
+    // reader.map_cursor = empty_end_at + 1;
+    // reader.buffer_cursor = 0;
+    reader.buffer_cursor += counter;
     // println!("update_reader_time : {:?}",update_reader_time.elapsed());
     reader.calc.update_reader_time += update_reader_time.elapsed().as_nanos();
 

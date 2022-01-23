@@ -62,3 +62,13 @@ pub fn buff_print(pool:&Vec<u8>){
     }
     println!("\n=====================\n");
 }
+
+#[allow(dead_code)]
+pub fn concat_str(v:String)->String{
+    let mut collect = String::new();
+    for i in v.chars(){
+        if collect.len() == 8{break;}
+        collect.push(i)
+    }
+    return collect;
+}

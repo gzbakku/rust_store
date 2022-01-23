@@ -1,6 +1,6 @@
 [package]
 name = "gzb_binary_69"
-version = "0.2.0"
+version = "0.2.1"
 authors = ["gzbakku <gzbakku@gmail.com>"]
 edition = "2018"
 

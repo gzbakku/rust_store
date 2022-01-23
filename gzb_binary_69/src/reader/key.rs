@@ -5,12 +5,12 @@
 use crate::workers::{u64_from_bytes,p_error};
 use crate::reader::{Reader};
 
-const ERROR:bool = true;
+const ERROR:bool = false;
 
 pub fn init(reader:&mut Reader)->Result<(),()>{
 
     if reader.key.1 == 0{
-        if reader.buffer.len() < 3+1{
+        if reader.buffer.len() - reader.flag.1 < 3+1{
             // p_error("short-flag_len-key",ERROR);
             return Err(());
         }
@@ -19,7 +19,7 @@ pub fn init(reader:&mut Reader)->Result<(),()>{
     }
 
     if reader.key.2 ==0{
-        if reader.buffer.len() < 3+1+3+reader.key.1 as usize{
+        if reader.buffer.len() - reader.flag.1 < 3+1+3+reader.key.1 as usize{
             // p_error("short-key_len-buff_size-key",ERROR);
             return Err(());
         }
@@ -52,7 +52,7 @@ pub fn init(reader:&mut Reader)->Result<(),()>{
     }
 
     if reader.key.0 == false{
-        if reader.buffer.len() < 13+reader.key.1 as usize+reader.key.2 as usize{
+        if reader.buffer.len() - reader.flag.1 < 13+reader.key.1 as usize+reader.key.2 as usize{
             // p_error("short-key_buff-key",ERROR);
             return Err(());
         }
@@ -65,6 +65,9 @@ pub fn init(reader:&mut Reader)->Result<(),()>{
             reader.flush();
             return Err(());
         }
+        //set key boundry in buffer
+        reader.key.3.0 = reader.buffer_cursor+3;
+        reader.key.3.1 = reader.buffer_cursor + 3 + (reader.key.2 as usize) - 1;
         reader.buffer_cursor += 3;
         reader.buffer_cursor += reader.key.2 as usize;
         if
@@ -76,8 +79,7 @@ pub fn init(reader:&mut Reader)->Result<(),()>{
             reader.flush();
             return Err(());
         }
-        reader.key.3.0 = 10 + reader.key.1 as usize;
-        reader.key.3.1 = 10 + reader.key.1 as usize + reader.key.2 as usize - 1;
+        //set final key params
         reader.key.0 = true;
         reader.buffer_cursor += 3;
         let mut collect_key = vec![];
@@ -86,6 +88,8 @@ pub fn init(reader:&mut Reader)->Result<(),()>{
         }
         reader.key.4 = collect_key;
     }
+
+    // println!("key");
 
     return Ok(());
 
