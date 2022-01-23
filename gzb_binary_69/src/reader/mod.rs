@@ -518,12 +518,14 @@ impl Reader{
         //find last empty section
         let mut empty_found = false;
         let mut empty_index:usize = 0;
-        match self.empty_end.get(&(self.map_cursor-1)){
-            Some(v)=>{
-                empty_index = *v;
-                empty_found = true;
-            },
-            None=>{}
+        if self.map_cursor > 0{
+            match self.empty_end.get(&(self.map_cursor-1)){
+                Some(v)=>{
+                    empty_index = *v;
+                    empty_found = true;
+                },
+                None=>{}
+            }
         }
 
         //update last empty section
