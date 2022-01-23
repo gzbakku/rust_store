@@ -33,7 +33,7 @@ async fn main() {
         }
     }
     
-    bechmarks().await;
+    simple().await;
 
 }
 
@@ -83,70 +83,53 @@ async fn bechmarks(){
 
     if true {
         build.add(benchmark::Benchmark{
-            no_of_writers:10,
-            no_of_writes:100000,
-            map_files:vec![
-                "D://workstation/expo/rust/rust_store/test/rustque/que1.rustque".to_string(),
-                "D://workstation/expo/rust/rust_store/test/rustque/que2.rustque".to_string(),
-                "D://workstation/expo/rust/rust_store/test/rustque/que3.rustque".to_string()
-            ],
-            write_size:256,
-            min_que_size:100000000,
-            expansion_size:50000000,
-            no_of_disk_workers:10
-        });
-        build.add(benchmark::Benchmark{
-            no_of_writers:10,
-            no_of_writes:100000,
-            map_files:vec![
-                "D://workstation/expo/rust/rust_store/test/rustque/que1.rustque".to_string(),
-                "D://workstation/expo/rust/rust_store/test/rustque/que2.rustque".to_string(),
-                "D://workstation/expo/rust/rust_store/test/rustque/que3.rustque".to_string()
-            ],
-            write_size:512,
-            min_que_size:100000000,
-            expansion_size:50000000,
-            no_of_disk_workers:10
-        });
-        build.add(benchmark::Benchmark{
-            no_of_writers:10,
+            no_of_writers:5,
             no_of_writes:200000,
             map_files:vec![
                 "D://workstation/expo/rust/rust_store/test/rustque/que1.rustque".to_string(),
                 "D://workstation/expo/rust/rust_store/test/rustque/que2.rustque".to_string(),
                 "D://workstation/expo/rust/rust_store/test/rustque/que3.rustque".to_string()
             ],
-            write_size:256,
-            min_que_size:100000000,
-            expansion_size:50000000,
+            write_size:512,
+            min_que_size:50_000_000,
+            expansion_size:50_000_000,
             no_of_disk_workers:10
         });
-    }
-
-    if false {
         build.add(benchmark::Benchmark{
-            no_of_writers:10,
-            no_of_writes:100000,
+            no_of_writers:5,
+            no_of_writes:200000,
             map_files:vec![
                 "D://workstation/expo/rust/rust_store/test/rustque/que1.rustque".to_string(),
                 "D://workstation/expo/rust/rust_store/test/rustque/que2.rustque".to_string(),
-                "D://workstation/expo/rust/rust_store/test/rustque/que3.rustque".to_string(),
-                "D://workstation/expo/rust/rust_store/test/rustque/que4.rustque".to_string(),
-                "D://workstation/expo/rust/rust_store/test/rustque/que5.rustque".to_string()
+                "D://workstation/expo/rust/rust_store/test/rustque/que3.rustque".to_string()
             ],
-            write_size:256,
-            min_que_size:100000000,
-            expansion_size:50000000,
-            no_of_disk_workers:10
+            write_size:512,
+            min_que_size:50_000_000,
+            expansion_size:50_000_000,
+            no_of_disk_workers:25
+        });
+        build.add(benchmark::Benchmark{
+            no_of_writers:5,
+            no_of_writes:200000,
+            map_files:vec![
+                "D://workstation/expo/rust/rust_store/test/rustque/que1.rustque".to_string(),
+                "D://workstation/expo/rust/rust_store/test/rustque/que2.rustque".to_string(),
+                "D://workstation/expo/rust/rust_store/test/rustque/que3.rustque".to_string()
+            ],
+            write_size:512,
+            min_que_size:50_000_000,
+            expansion_size:50_000_000,
+            no_of_disk_workers:50
         });
     }
-
 
     build.run().await;
 
 }
 
 async fn simple(){
+
+    println!(">>> simple");
 
     let hold = Instant::now();
 
@@ -161,9 +144,9 @@ async fn simple(){
             "D://workstation/expo/rust/rust_store/test/rustque/que3.rustque".to_string(),
             // "D://workstation/expo/rust/rust_store/test/rustque/que4.rustque".to_string(),
         ],
-        500000000,
-        5000000,
-        100
+        5_000_000,
+        5_000_000,
+        5
     )).await{
         Ok(v)=>{
             que = v;
@@ -189,12 +172,12 @@ async fn simple(){
     //---------------------------
     //write items to the que
     //---------------------------
-    if false{
+    if true{
         for _ in 0..1{
             let write_time_final = Instant::now();
             let sleeper = Arc::new(Notify::new());
             let waker = sleeper.clone();
-            let no_of_spawns = 50;
+            let no_of_spawns = 1;
             for _nsp in 0..no_of_spawns{
                 let que_to_move = que.clone();
                 let waker_to_move = waker.clone();
@@ -203,9 +186,9 @@ async fn simple(){
                     let write_spawn_time = Instant::now();
                     let mut que = que_to_move;
                     let mut collect = Vec::new();
-                    for _n in 0..10000{
+                    for _n in 0..1000{
                         match que.add(hold_big_value.clone()).await{
-                            Ok(mut que_response)=>{
+                            Ok(que_response)=>{
                                 collect.push(async move{
                                     que_response.check().await
                                 });
@@ -223,7 +206,9 @@ async fn simple(){
                     for r in join_all(collect).await.iter(){
                         if !r{failed += 1;} else {success += 1;}
                     }
-                    println!("{:?} write_spawn_time : {:?} {:?} {:?}",_nsp,write_spawn_time.elapsed(),failed,success);
+                    if false {
+                        println!("{:?} write_spawn_time : {:?} {:?} {:?}",_nsp,write_spawn_time.elapsed(),failed,success);
+                    }
                     waker_to_move.notify_one();
                 });
             }
@@ -241,7 +226,7 @@ async fn simple(){
         let remove_time_final = Instant::now();
         loop{
             match que.next().await{
-                Ok(mut next_response)=>{
+                Ok(next_response)=>{
                     let _quer_resp = next_response.check().await;
                     if !_quer_resp {break;}
                     // println!("next resp : {:?}",_quer_resp);
@@ -253,9 +238,9 @@ async fn simple(){
 
                             if true{
                                 match que.remove(pointer).await{
-                                    Ok(mut remove_response)=>{
+                                    Ok(remove_response)=>{
                                         let remove_resp = remove_response.check().await;
-                                        println!("remove resp : {:?}",remove_resp);
+                                        // println!("remove resp : {:?}",remove_resp);
                                     },
                                     Err(_e)=>{
                                         println!("!!! failed-que-remove : {:?}",_e);
@@ -265,7 +250,7 @@ async fn simple(){
 
                             if false{
                                 match que.reset(pointer).await{
-                                    Ok(mut reset_response)=>{
+                                    Ok(reset_response)=>{
                                         let reset_resp = reset_response.check().await;
                                         println!("reset resp : {:?}",reset_resp);
                                     },

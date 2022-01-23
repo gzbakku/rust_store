@@ -98,9 +98,18 @@ impl Signal{
         let lock = hold.lock().await;
         return lock.result;
     }
-    pub async fn get(hold:Arc<Mutex<Signal>>)->SignalData{
-        let lock = hold.lock().await;
-        return lock.data.clone();
+    pub async fn get(hold:Arc<Mutex<Signal>>)->Result<SignalData,&'static str>{
+        match Arc::try_unwrap(hold){
+            Ok(v)=>{
+                let hold = v.into_inner();
+                return Ok(hold.data);
+            },
+            Err(_)=>{
+                return Err("failed-unwrap_arc");
+            }
+        }
+        // let lock = hold.lock().await;
+        // return lock.data.clone();
     }
 }
 

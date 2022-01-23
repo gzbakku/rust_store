@@ -1,6 +1,6 @@
 [package]
 name = "rustque"
-version = "1.0.7"
+version = "1.0.8"
 authors = ["gzbakku <gzbakku@gmail.com>"]
 edition = "2018"
 
@@ -23,6 +23,6 @@ tokio = { version = "1.14.0", features = ["full"] }
 crossbeam = "0.8.1"
 flume = "0.10.9"
 byteorder = "1.4.3"
-gzb_binary_69 = "0.2.0"
+gzb_binary_69 = "0.2.2"
 futures = "0.3.19"
 # gzb_binary_69 = {path="../gzb_binary_69"}

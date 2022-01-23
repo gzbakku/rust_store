@@ -238,14 +238,6 @@ async fn build_map(metadata:Metadata,file:&mut File)->Result<(Reader,Vec<u64>),&
         chunk_size = 50 * MB_1;//println!("50");
     } else if len > (MB_1 * 25){
         chunk_size = 25 * MB_1;//println!("25");
-    } else if len > (MB_1 * 20){
-        chunk_size = 20 * MB_1;//println!("20");
-    } else if len > (MB_1 * 15){
-        chunk_size = 15 * MB_1;//println!("15");
-    } else if len > (MB_1 * 10){
-        chunk_size = 10 * MB_1;//println!("10");
-    } else if len > (MB_1 * 5){
-        chunk_size = 05 * MB_1;//println!("5");
     } else {
         chunk_size = len;//println!("0");
     }
