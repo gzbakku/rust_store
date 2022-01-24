@@ -3,6 +3,7 @@ use tokio::sync::Mutex;
 use crate::workers::{Signal,SignalData,Pointer};
 use tokio::sync::Notify;
 
+#[derive(Debug,Clone)]
 pub struct QueResponse{
     signal:Arc<Mutex<Signal>>,
     sleeper:Arc<Notify>
