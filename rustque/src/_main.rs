@@ -30,10 +30,14 @@ async fn main() {
         if cmd.contains("--bechmark"){
             bechmarks().await;
             return;
+        } else
+        if cmd.contains("--debug"){
+            debug().await;
+            return;
         }
     }
     
-    simple().await;
+    debug().await;
 
 }
 
@@ -144,8 +148,8 @@ async fn simple(){
             "D://workstation/expo/rust/rust_store/test/rustque/que3.rustque".to_string(),
             // "D://workstation/expo/rust/rust_store/test/rustque/que4.rustque".to_string(),
         ],
-        5_000_000,
-        5_000_000,
+        1_000_000,
+        1_000_000,
         5
     )).await{
         Ok(v)=>{
@@ -186,7 +190,7 @@ async fn simple(){
                     let write_spawn_time = Instant::now();
                     let mut que = que_to_move;
                     let mut collect = Vec::new();
-                    for _n in 0..1000{
+                    for _n in 0..1{
                         match que.add(hold_big_value.clone()).await{
                             Ok(que_response)=>{
                                 collect.push(async move{
@@ -240,7 +244,7 @@ async fn simple(){
                                 match que.remove(pointer).await{
                                     Ok(remove_response)=>{
                                         let remove_resp = remove_response.check().await;
-                                        // println!("remove resp : {:?}",remove_resp);
+                                        println!("remove resp : {:?}",remove_resp);
                                     },
                                     Err(_e)=>{
                                         println!("!!! failed-que-remove : {:?}",_e);
@@ -299,5 +303,105 @@ async fn simple(){
 
 }
 
-//que(message)(await confirm)->map(message)->disk(message)(submit confirm)
+async fn debug(){
+
+    println!(">>> debug");
+
+    let hold = Instant::now();
+
+    //---------------------------
+    //initiate que
+    //---------------------------
+    let mut que:Que;
+    match Que::new(Config::new(
+        vec![
+            "D://workstation/expo/rust/rust_store/test/rustque/que1.rustque".to_string(),
+            // "D://workstation/expo/rust/rust_store/test/rustque/que2.rustque".to_string(),
+            // "D://workstation/expo/rust/rust_store/test/rustque/que3.rustque".to_string(),
+            // "D://workstation/expo/rust/rust_store/test/rustque/que4.rustque".to_string(),
+        ],
+        1_000_000,
+        1_000_000,
+        5
+    )).await{
+        Ok(v)=>{
+            que = v;
+            println!("que initiated : {:?}",hold.elapsed());
+        },
+        Err(e)=>{
+            println!("!!! failed-que::new => {:?}",e);
+            return;
+        }
+    }
+
+    //there is a value 
+
+    //value is in processing 
+
+    //anothr value is added
+    loop{
+        match que.next().await{
+            Ok(next_response)=>{
+                if !next_response.check().await{break;}
+                match next_response.data().await{
+                    Some((_value,pointer))=>{
+                        match que.remove(pointer).await{
+                            Ok(remove_response)=>{
+                                if remove_response.check().await{
+                                    println!("removed");
+                                }
+                            },
+                            Err(_e)=>{
+                                println!("!!! failed-que-remove : {:?}",_e);
+                            }
+                        }
+                    },
+                    None=>{}
+                }
+            },
+            Err(_e)=>{
+                println!("!!! failed-que-get : {:?}",_e);
+                break;
+            }
+        }
+    }
+
+    let mut big_value = vec![];
+    let mut last_put = 0;
+    loop {
+        if big_value.len() == 512{break;}
+        if last_put == 200{last_put = 1;} else {last_put += 1;}
+        big_value.push(last_put);
+    }
+
+    match que.add(big_value.clone()).await{
+        Ok(response)=>{
+            response.check().await;
+        },
+        Err(_e)=>{
+            println!("!!! failed-que-add : {:?}",_e);
+        }
+    }
+
+    match que.next().await{
+        Ok(response)=>{
+            response.check().await;
+        },
+        Err(_e)=>{
+            println!("!!! failed-que-get : {:?}",_e);
+        }
+    }
+
+    match que.add(big_value.clone()).await{
+        Ok(response)=>{
+            response.check().await;
+        },
+        Err(_e)=>{
+            println!("!!! failed-que-add : {:?}",_e);
+        }
+    }
+
+    // println!("{:?}",que.map);
+
+}
 

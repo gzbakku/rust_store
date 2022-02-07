@@ -21,12 +21,9 @@ pub async fn init(
     total_maps:u8
 ){
 
-    // println!("{:?}",items);
-
     // let mut receiver = receiver;
     let mut biggest:u64 = 1;
     let mut last_map_added = 1;
-    let mut processing = 0;
     if items.len() > 0{
         biggest = items[items.len()-1].clone();
     }
@@ -41,7 +38,6 @@ pub async fn init(
                             Signal::error(message.signal).await;
                         } else {
                             let item_index = items.remove(0);
-                            processing += 1;
                             match locator.remove(&item_index){
                                 Some(map_index)=>{
                                     match map_senders.get_mut(&map_index){
@@ -69,12 +65,10 @@ pub async fn init(
                     },
                     LocatorMessage::Add(message)=>{
                         //find next biggest index
-                        if items.len() == 0 && processing == 0{biggest = 1;} else {biggest += 1;}
+                        if items.len() == 0{biggest = 1;} else {biggest += 1;}
                         if last_map_added == total_maps{last_map_added = 1;} else {last_map_added += 1;}
                         locator.insert(biggest.clone(),last_map_added.clone());
                         items.push(biggest);
-                        // println!("biggest : {:?}",biggest);
-                        // println!("processing : {:?}",processing);
                         match map_senders.get_mut(&last_map_added){
                             Some(sender)=>{
                                 match sender.send_async(MapMessage::Add(MapAddMessage{
@@ -104,7 +98,7 @@ pub async fn init(
                                     pointer:message.pointer,
                                     signal:message.signal.clone()
                                 })).await{
-                                    Ok(_)=>{if processing > 0{processing -= 1;}},
+                                    Ok(_)=>{},
                                     Err(_)=>{
                                         Signal::error(message.signal).await;
                                     }
@@ -121,7 +115,6 @@ pub async fn init(
                             message.pointer.item_index.clone(),
                             message.pointer.map_index.clone()
                         );
-                        if processing > 0{processing -= 1;}
                         Signal::ok(message.signal).await;
                     }
                 }
