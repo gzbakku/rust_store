@@ -104,8 +104,10 @@ impl Signal{
                 let hold = v.into_inner();
                 return Ok(hold.data);
             },
-            Err(_)=>{
-                return Err("failed-unwrap_arc");
+            Err(v)=>{
+                let lock = v.lock().await;
+                return Ok(lock.data.clone());
+                // return Err("failed-unwrap_arc");
             }
         }
         // let lock = hold.lock().await;
